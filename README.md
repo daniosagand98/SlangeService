@@ -19,7 +19,7 @@ Aplikacja do zarządzania ekipą w Norwegii: domy, auta, karty paliwowe, godziny
 
 ## Mapa domów / aut
 
-Każdy dom (auto) to kafelek połączony z centrum, jak joby w GitHub Actions. Kierownik przeciąga ludzi z listy na kafelek (na telefonie: przytrzymaj i przeciągnij albo dotknij osobę, potem dom). Kafelki można przesuwać, mapę przybliżać (+/−, pinch, Ctrl+scroll), dopasować i otworzyć na pełnym ekranie. Układy: Drzewo (GitHub), Mapa myśli, Lista pionowa.
+Każdy dom (auto) to kafelek połączony z centrum, jak joby w GitHub Actions. Kierownik przeciąga ludzi z listy na kafelek (na telefonie: przytrzymaj i przeciągnij albo dotknij osobę, potem dom). Kafelki można przesuwać, mapę przybliżać przyciskami +/− (zoom dwoma palcami jest wyłączony), dopasować i otworzyć na pełnym ekranie. Układy: Drzewo (GitHub), Mapa myśli, Lista pionowa.
 
 ## Ważne – wersja testowa
 

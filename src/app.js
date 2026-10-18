@@ -6,7 +6,7 @@
    ========================================================= */
 'use strict';
 
-const VERSION = '1.0.0';
+const VERSION = '1.0.1';
 const BUILD = '2026-10-18';
 const COMPANY = 'Slangeservice AS';
 const PREVIEW = !!window.CC_PREVIEW;
@@ -551,7 +551,7 @@ function hoursFormHTML(e = {}) {
   const splits = e.splits?.length ? e.splits : [{}];
   return `<div class="hform">
     ${can.foreman() ? `<label>Pracownik<select name="userId">${activeUsers().map(u => opt(u.id, u.name, (e.userId || ME.id) === u.id)).join('')}</select></label>` : ''}
-    <div class="g3"><label>Data<input type="date" name="date" value="${e.date || isoLocal()}" required></label>
+    <div class="g3 tight"><label>Data<input type="date" name="date" value="${e.date || isoLocal()}" required></label>
       <label>Od<input type="time" name="from" value="${e.from || '07:00'}" required></label>
       <label>Do<input type="time" name="to" value="${e.to || '15:30'}" required></label></div>
     <div class="g2"><label>Przerwa (min)<input type="number" name="breakMin" min="0" step="5" value="${e.breakMin ?? 30}"></label>
@@ -889,13 +889,8 @@ function bindGraph(cv) {
   cv.addEventListener('pointerdown', e => {
     if (e.target.closest('.chip[data-drag], button, select, .gctl, .gctl-l')) return;
     if (e.pointerType === 'mouse' && e.button !== 0) return;
-    pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
-    if (pts.size === 2) {
-      const [a, b] = [...pts.values()]; const r = cv.getBoundingClientRect(); const v = GV[kind];
-      const cx = (a.x + b.x) / 2 - r.left, cy = (a.y + b.y) / 2 - r.top;
-      st = { mode: 'pinch', d0: Math.hypot(a.x - b.x, a.y - b.y), wx: (cx - v.x) / v.s, wy: (cy - v.y) / v.s, s0: v.s, moved: true };
-      return;
-    }
+    if (!e.isPrimary) return; // drugi palec ignorowany – brak zoomu dwoma palcami
+    pts.clear(); pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
     const node = e.target.closest('.gn'); const handle = e.target.closest('.gn-h');
     if (node && (handle || node.classList.contains('hub')) && ed) st = { mode: 'node', node, id: node.dataset.node, x0: e.clientX, y0: e.clientY, orig: { ...L.pos[node.dataset.node] }, moved: false, pid: e.pointerId };
     else st = { mode: 'pan', x0: e.clientX, y0: e.clientY, orig: { ...GV[kind] }, moved: false, pid: e.pointerId };
@@ -904,12 +899,6 @@ function bindGraph(cv) {
     if (!pts.has(e.pointerId) || !st) return;
     pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
     const v = GV[kind];
-    if (st.mode === 'pinch') {
-      if (pts.size < 2) return; const [a, b] = [...pts.values()]; const r = cv.getBoundingClientRect();
-      const s = Math.max(0.25, Math.min(2.2, st.s0 * Math.hypot(a.x - b.x, a.y - b.y) / st.d0));
-      const cx = (a.x + b.x) / 2 - r.left, cy = (a.y + b.y) / 2 - r.top;
-      v.s = s; v.x = cx - st.wx * s; v.y = cy - st.wy * s; applyView(cv); return;
-    }
     const dx = e.clientX - st.x0, dy = e.clientY - st.y0;
     if (!st.moved) { if (Math.hypot(dx, dy) < 5) return; st.moved = true; try { cv.setPointerCapture(e.pointerId); } catch (_) { } cv.classList.add(st.mode === 'node' ? 'moving' : 'panning'); if (st.mode === 'node') st.node.classList.add('lift'); }
     if (st.mode === 'node') {
@@ -923,13 +912,12 @@ function bindGraph(cv) {
     if (st.moved) SUPPRESS_CLICK_UNTIL = Date.now() + 350;
     if (st.mode === 'node' && st.moved) { st.node.classList.remove('lift'); L.mode = 'custom'; save(); drawEdges(cv); }
     cv.classList.remove('moving', 'panning');
-    if (pts.size === 0) st = null;
-    else if (st.mode === 'pinch') { const [p] = [...pts.values()]; st = { mode: 'pan', x0: p.x, y0: p.y, orig: { ...GV[kind] }, moved: true }; }
+    st = null;
   };
   cv.addEventListener('pointerup', end); cv.addEventListener('pointercancel', end);
   cv.addEventListener('wheel', e => {
-    if (e.ctrlKey || e.metaKey) { e.preventDefault(); const r = cv.getBoundingClientRect(); zoomAt(cv, e.clientX - r.left, e.clientY - r.top, Math.exp(-e.deltaY * 0.01)); }
-    else if (GOPT[kind].full) { e.preventDefault(); const v = GV[kind]; v.x -= e.deltaX; v.y -= e.deltaY; applyView(cv); }
+    if (e.ctrlKey || e.metaKey) { e.preventDefault(); return; } // gest szczypania na touchpadzie – wyłączony
+    if (GOPT[kind].full) { e.preventDefault(); const v = GV[kind]; v.x -= e.deltaX; v.y -= e.deltaY; applyView(cv); }
   }, { passive: false });
 }
 
@@ -1318,8 +1306,8 @@ const ACT = {
   'car-edit': el => {
     const c = carById(el.dataset.id) || {};
     modal(c.id ? 'Edytuj auto' : 'Nowe auto', `<div class="g2"><label>Nazwa / model<input name="name" value="${esc(c.name || '')}" required></label><label>Rejestracja<input name="plate" value="${esc(c.plate || '')}"></label></div>
-      <div class="g3"><label>Miejsc<input type="number" name="seats" min="1" value="${c.seats || 5}"></label><label>Przebieg (km)<input type="number" name="odometer" min="0" value="${c.odometer || 0}"></label><label>Paliwo<select name="fuel">${['diesel', 'benzyna', 'elektryk', 'hybryda'].map(f => opt(f, f, f === (c.fuel || 'diesel'))).join('')}</select></label></div>
-      <div class="g2"><label>EU-kontroll (data)<input type="date" name="euDate" value="${c.euDate || ''}"></label><label>Następny serwis przy (km)<input type="number" name="serviceKm" min="0" value="${c.serviceKm || ''}"></label></div>`, {
+      <div class="g3 tight"><label>Miejsca<input type="number" name="seats" min="1" value="${c.seats || 5}"></label><label>Przebieg (km)<input type="number" name="odometer" min="0" value="${c.odometer || 0}"></label><label>Paliwo<select name="fuel">${['diesel', 'benzyna', 'elektryk', 'hybryda'].map(f => opt(f, f, f === (c.fuel || 'diesel'))).join('')}</select></label></div>
+      <div class="g2"><label>EU-kontroll<input type="date" name="euDate" value="${c.euDate || ''}"></label><label>Serwis przy (km)<input type="number" name="serviceKm" min="0" value="${c.serviceKm || ''}"></label></div>`, {
       onSubmit: fd => { const d = { name: fd.get('name'), plate: fd.get('plate'), seats: +fd.get('seats'), odometer: +fd.get('odometer'), fuel: fd.get('fuel'), euDate: fd.get('euDate'), serviceKm: +fd.get('serviceKm') || 0 }; if (c.id) Object.assign(c, d); else DB.cars.push({ id: uid(), ...d }); log('Zapisano auto ' + d.name); save(); render(); toast('Zapisano'); },
       danger: c.id ? { act: 'car-del', id: c.id } : null,
     });
@@ -1381,7 +1369,7 @@ const ACT = {
       <div class="g2"><label>Grupa rotacyjna<select name="groupId">${DB.groups.map(g => opt(g.id, `${g.name} (${activeUsers().filter(u => u.groupId === g.id).length} os.)`, g.id === t.groupId)).join('')}<option value="" ${t.id && !t.groupId ? 'selected' : ''}>— tylko wybrane osoby —</option></select></label>
       <label>Kierunek<select name="direction">${opt('PL', 'Wyjazd do Polski', t.direction !== 'NO')}${opt('NO', 'Przyjazd do Norwegii', t.direction === 'NO')}</select></label></div>
       <label>Dodatkowe osoby (opcjonalnie)<select name="userIds" multiple size="4">${activeUsers().map(u => opt(u.id, u.name, (t.userIds || []).includes(u.id))).join('')}</select></label>
-      <div class="g3"><label>Data lotu<input type="date" name="date" value="${t.date || ''}" required></label><label>Wylot<input type="time" name="depTime" value="${t.depTime || ''}" required></label><label>Przylot<input type="time" name="arrTime" value="${t.arrTime || ''}"></label></div>
+      <div class="g3 tight"><label>Data lotu<input type="date" name="date" value="${t.date || ''}" required></label><label>Wylot<input type="time" name="depTime" value="${t.depTime || ''}" required></label><label>Przylot<input type="time" name="arrTime" value="${t.arrTime || ''}"></label></div>
       <div class="g3"><label>Nr lotu<input name="flightNo" value="${esc(t.flightNo || '')}" placeholder="DY1052"></label>
       <label>Lotnisko w Norwegii<select name="airportNO">${Object.entries(AIRPORTS).map(([k, a]) => opt(k, a.name, k === (t.airportNO || 'BGO'))).join('')}</select></label>
       <label>Lotnisko w Polsce<input name="airportPL" list="plap" value="${esc(t.airportPL || 'Gdańsk (GDN)')}"><datalist id="plap">${PL_AIRPORTS.map(a => `<option value="${a}">`).join('')}</datalist></label></div>
@@ -1546,6 +1534,10 @@ document.addEventListener('pointerup', () => { if (CD) chipDragEnd(true); });
 document.addEventListener('pointercancel', () => { if (CD) chipDragEnd(false); });
 document.addEventListener('touchmove', e => { if (CD && CD.active) e.preventDefault(); }, { passive: false });
 document.addEventListener('contextmenu', e => { if (e.target.closest('.chip[data-drag]')) e.preventDefault(); });
+/* blokada zoomu dwoma palcami na całej stronie (Android, iOS, touchpad) */
+['gesturestart', 'gesturechange', 'gestureend'].forEach(t => document.addEventListener(t, e => e.preventDefault(), { passive: false }));
+document.addEventListener('touchmove', e => { if (e.touches && e.touches.length > 1) e.preventDefault(); }, { passive: false });
+document.addEventListener('wheel', e => { if (e.ctrlKey) e.preventDefault(); }, { passive: false });
 window.addEventListener('resize', () => { $$('.gcanvas').forEach(cv => { if (GOPT[cv.dataset.gkind]?.full) fitGraph(cv); }); });
 window.addEventListener('hashchange', () => { const v = location.hash.slice(1); if (v && v !== VIEW && VIEWS[v] && v !== 'user') { VIEW = v; render(); } });
 

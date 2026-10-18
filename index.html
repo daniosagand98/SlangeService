@@ -2,7 +2,7 @@
 <html lang="pl">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#070d18">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -24,7 +24,7 @@
 }
 *{box-sizing:border-box;margin:0;padding:0}
 html,body{background:var(--bg);color:var(--text);font:15px/1.45 Inter,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;-webkit-font-smoothing:antialiased;-webkit-tap-highlight-color:transparent}
-body{min-height:100vh;overflow-x:hidden}
+body{min-height:100vh;overflow-x:hidden;touch-action:pan-x pan-y}
 body.noscroll{overflow:hidden}
 a{color:var(--accent2)}
 button,input,select,textarea{font:inherit;color:inherit}
@@ -56,7 +56,7 @@ button,input,select,textarea{font:inherit;color:inherit}
 .seg{display:flex;background:rgba(0,0,0,.3);border:1px solid var(--line);border-radius:999px;padding:3px;gap:2px}
 .seg button{border:0;background:none;padding:5px 12px;border-radius:999px;font-size:13px;font-weight:600;color:var(--muted);cursor:pointer;transition:.25s var(--ease)}
 .seg button.on{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#1a0d00;box-shadow:0 4px 14px rgba(255,122,26,.4)}
-.pbar-sel{width:auto;max-width:220px;background:rgba(0,0,0,.3);border:1px solid var(--line);border-radius:10px;padding:5px 8px;font-size:13px}
+.pbar-sel{width:auto;max-width:220px;height:32px;padding-right:28px!important;background:rgba(0,0,0,.3);border:1px solid var(--line);border-radius:10px;padding:5px 8px;font-size:13px}
 
 /* ---------- powłoka ---------- */
 .shell{display:grid;grid-template-columns:252px 1fr;min-height:100vh}
@@ -109,19 +109,29 @@ button,input,select,textarea{font:inherit;color:inherit}
 .ib .dot{position:absolute;top:-4px;right:-4px;background:var(--accent);color:#1a0d00;font-size:10px;font-weight:800;border-radius:10px;padding:0 5px;min-width:17px;height:17px;display:grid;place-items:center}
 .av-btn{border-radius:50%;padding:0;border:0;background:none}
 .link{background:none;border:0;color:var(--accent2);cursor:pointer;padding:0;margin-top:4px}
-label{display:flex;flex-direction:column;gap:5px;font-size:12.5px;color:var(--muted);font-weight:500;min-width:0}
+label{display:flex;flex-direction:column;gap:5px;font-size:12px;color:var(--muted);font-weight:500;min-width:0}
 label.check{flex-direction:row;align-items:center;gap:8px;color:var(--text);font-size:14px}
-input,select,textarea{background:rgba(0,0,0,.28);border:1px solid var(--line2);border-radius:11px;padding:10px 12px;color:var(--text);font-size:15px;outline:none;transition:border .2s,box-shadow .2s;width:100%;min-width:0}
+input,select,textarea{background:rgba(0,0,0,.28);border:1px solid var(--line2);border-radius:10px;padding:8px 11px;color:var(--text);font-size:15px;outline:none;transition:border .2s,box-shadow .2s;width:100%;min-width:0}
+input,select{height:42px}
+select{-webkit-appearance:none;appearance:none;padding-right:30px;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238796af' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M7 10l5 5 5-5'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 9px center;background-size:16px}
+select[multiple]{height:auto;padding:6px;background-image:none}
 input[type=checkbox]{width:18px;height:18px;accent-color:var(--accent)}
-input[type=color]{padding:3px;height:42px}
+input[type=color]{padding:3px}
+input[type=file]{height:auto;padding:8px;font-size:13.5px}
+input[type=number]{-moz-appearance:textfield}
+input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
+/* pola daty i godziny – kompaktowe, bez rozjeżdżania na iPhonie */
+input[type=date],input[type=time],input[type=month]{-webkit-appearance:none;appearance:none;display:block;height:42px;line-height:normal;text-align:left;max-width:100%}
+input::-webkit-date-and-time-value{text-align:left;margin:0;min-height:1.2em}
+input::-webkit-calendar-picker-indicator{opacity:.55;margin-left:2px;cursor:pointer}
+input[type=time]::-webkit-calendar-picker-indicator{display:none}
 input:focus,select:focus,textarea:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(255,122,26,.18)}
-select[multiple]{padding:6px}
 textarea{resize:vertical}
 .g2,.g3{display:grid;gap:10px}
 .g2{grid-template-columns:1fr 1fr}
 .g3{grid-template-columns:repeat(3,1fr)}
-.mini{width:auto;padding:7px 10px;font-size:13px}
-.mpick{width:auto;padding:7px 10px;font-size:13px}
+.mini{width:auto;height:36px;padding:6px 30px 6px 10px;font-size:13px}
+.mpick{width:auto;height:36px;padding:6px 10px;font-size:13px;border-radius:10px}
 .filebtn{flex-direction:row;color:var(--text);font-size:14px}
 
 /* ---------- karty ---------- */
@@ -196,13 +206,21 @@ button.tag{cursor:pointer}
 .tabs{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
 .tabs>button{border:1px solid var(--line);background:var(--card);border-radius:999px;padding:7px 15px;font-weight:600;font-size:13.5px;cursor:pointer;color:var(--muted);transition:.2s}
 .tabs>button.on{background:var(--text);color:#0a0f1a;border-color:var(--text)}
-.hform{display:flex;flex-direction:column;gap:10px}
-.totalbox{display:flex;flex-direction:column;justify-content:center;padding:6px 12px;border-radius:11px;background:rgba(255,122,26,.08);border:1px dashed rgba(255,122,26,.35)}
-.htot{font-size:20px;font-weight:800;color:var(--accent2)}
+.hform{display:flex;flex-direction:column;gap:9px}
+.hform label{gap:4px;font-size:12px}
+.hform input,.hform select{height:40px;padding:7px 10px;font-size:15px;border-radius:10px}
+.hform input[type=date],.hform input[type=time]{font-size:14.5px;padding:7px 9px}
+.hform .g3{grid-template-columns:1.45fr 1fr 1fr;gap:8px}
+.hform .g2{grid-template-columns:1fr 1.25fr;gap:8px;align-items:end}
+.totalbox{display:flex;flex-direction:column;justify-content:center;height:40px;padding:0 10px;border-radius:10px;background:rgba(255,122,26,.08);border:1px dashed rgba(255,122,26,.35);line-height:1.15}
+.totalbox>.muted{display:none}
+.htot{font-size:16px;font-weight:800;color:var(--accent2)}
+.hrest{font-size:11px!important}
 .hrest.bad{color:#ff8a98}.hrest.good{color:#6ff0b5}
 .splits-h{display:flex;align-items:center;justify-content:space-between;font-size:12.5px;color:var(--muted);font-weight:600;margin-top:2px}
 .splits{display:flex;flex-direction:column;gap:7px}
-.split{display:grid;grid-template-columns:1fr 84px 38px;gap:7px;animation:up .3s var(--ease)}
+.split{display:grid;grid-template-columns:1fr 68px 40px;gap:7px;animation:up .3s var(--ease)}
+.split .ib{width:40px;height:40px}
 .bigtot{display:flex;align-items:baseline;gap:10px}
 .bigtot .count{font-size:40px;font-weight:900;letter-spacing:-.04em;background:linear-gradient(135deg,#fff,var(--accent2));-webkit-background-clip:text;background-clip:text;color:transparent}
 .pb{display:flex;flex-direction:column;gap:5px;font-size:13.5px}
@@ -300,7 +318,7 @@ button.tag{cursor:pointer}
 .gwrap.gfull{position:fixed;inset:0;z-index:80;height:auto;min-height:0;border-radius:0;border:0;animation:none}
 .gpanel{display:flex;flex-direction:column;gap:10px;padding:14px;border-right:1px solid var(--gh-line);background:#0f141b;min-height:0;transition:background .2s}
 .gp-h{display:flex;align-items:center;justify-content:space-between;gap:8px}
-.gp-search{padding:8px 11px;font-size:14px;background:#0d1117;border-color:var(--gh-line)}
+.gp-search{height:38px;padding:8px 11px;font-size:14px;background:#0d1117;border-color:var(--gh-line)}
 .gp-tabs{display:flex;background:#0d1117;border:1px solid var(--gh-line);border-radius:10px;padding:3px;gap:3px}
 .gp-tabs button{flex:1;border:0;background:none;padding:6px;border-radius:7px;font-size:12.5px;font-weight:600;color:var(--muted);cursor:pointer}
 .gp-tabs button.on{background:#21262d;color:var(--text)}
@@ -358,7 +376,7 @@ button.tag{cursor:pointer}
 .gn.dz.over{transform:scale(1.03)}
 .gctl{position:absolute;right:14px;bottom:14px;display:flex;align-items:center;gap:8px;z-index:3}
 .gctl-l{position:absolute;left:12px;top:12px;z-index:3}
-.gsel{width:auto;background:#161b22;border-color:var(--gh-line);font-size:13px;padding:7px 10px;border-radius:10px}
+.gsel{width:auto;height:36px;padding-right:30px!important;background:#161b22;border-color:var(--gh-line);font-size:13px;padding:7px 10px;border-radius:10px}
 .gbtn{width:42px;height:42px;border-radius:12px;border:1px solid var(--gh-line);background:#21262d;display:grid;place-items:center;cursor:pointer;color:#c9d1d9;transition:background .2s,transform .15s}
 .gbtn:hover{background:#30363d}
 .gbtn:active{transform:scale(.94)}
@@ -457,7 +475,7 @@ button.tag{cursor:pointer}
 .ov.in .modal{transform:none}
 .m-h{display:flex;align-items:center;justify-content:space-between;padding:16px 18px;border-bottom:1px solid var(--line);position:sticky;top:0;background:#132036;z-index:1}
 .m-h h3{font-size:17px}
-.m-b{padding:18px;display:flex;flex-direction:column;gap:12px}
+.m-b{padding:16px 18px;display:flex;flex-direction:column;gap:11px}
 .m-f{display:flex;gap:8px;padding:14px 18px;border-top:1px solid var(--line);position:sticky;bottom:0;background:#0d1626;flex-wrap:wrap}
 #toasts{position:fixed;top:16px;left:50%;transform:translateX(-50%);z-index:200;display:flex;flex-direction:column;gap:8px;align-items:center;pointer-events:none;width:min(440px,calc(100% - 24px))}
 .toast{display:flex;align-items:center;gap:10px;padding:11px 16px;border-radius:14px;background:rgba(18,30,50,.95);border:1px solid var(--line2);box-shadow:0 14px 34px rgba(0,0,0,.5);font-size:14px;font-weight:500;transform:translateY(-20px) scale(.95);opacity:0;transition:.35s var(--ease)}
@@ -519,6 +537,10 @@ button.tag{cursor:pointer}
   .hide-s{display:none}
   .g3{grid-template-columns:1fr 1fr}
   .g3>label:first-child{grid-column:1/-1}
+  .g3.tight{grid-template-columns:1.45fr 1fr 1fr;gap:6px}
+  .g3.tight>label:first-child{grid-column:auto}
+  .g3.tight input[type=date],.g3.tight input[type=time]{font-size:14px;padding:7px}
+  .g2{gap:8px}
   .stats{grid-template-columns:1fr 1fr}
   .stats.s3{grid-template-columns:repeat(3,1fr)}
   .stats.s3 .stat{flex-direction:column;align-items:flex-start;gap:8px;padding:12px}
@@ -557,7 +579,7 @@ button.tag{cursor:pointer}
    ========================================================= */
 'use strict';
 
-const VERSION = '1.0.0';
+const VERSION = '1.0.1';
 const BUILD = '2026-10-18';
 const COMPANY = 'Slangeservice AS';
 const PREVIEW = !!window.CC_PREVIEW;
@@ -1102,7 +1124,7 @@ function hoursFormHTML(e = {}) {
   const splits = e.splits?.length ? e.splits : [{}];
   return `<div class="hform">
     ${can.foreman() ? `<label>Pracownik<select name="userId">${activeUsers().map(u => opt(u.id, u.name, (e.userId || ME.id) === u.id)).join('')}</select></label>` : ''}
-    <div class="g3"><label>Data<input type="date" name="date" value="${e.date || isoLocal()}" required></label>
+    <div class="g3 tight"><label>Data<input type="date" name="date" value="${e.date || isoLocal()}" required></label>
       <label>Od<input type="time" name="from" value="${e.from || '07:00'}" required></label>
       <label>Do<input type="time" name="to" value="${e.to || '15:30'}" required></label></div>
     <div class="g2"><label>Przerwa (min)<input type="number" name="breakMin" min="0" step="5" value="${e.breakMin ?? 30}"></label>
@@ -1440,13 +1462,8 @@ function bindGraph(cv) {
   cv.addEventListener('pointerdown', e => {
     if (e.target.closest('.chip[data-drag], button, select, .gctl, .gctl-l')) return;
     if (e.pointerType === 'mouse' && e.button !== 0) return;
-    pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
-    if (pts.size === 2) {
-      const [a, b] = [...pts.values()]; const r = cv.getBoundingClientRect(); const v = GV[kind];
-      const cx = (a.x + b.x) / 2 - r.left, cy = (a.y + b.y) / 2 - r.top;
-      st = { mode: 'pinch', d0: Math.hypot(a.x - b.x, a.y - b.y), wx: (cx - v.x) / v.s, wy: (cy - v.y) / v.s, s0: v.s, moved: true };
-      return;
-    }
+    if (!e.isPrimary) return; // drugi palec ignorowany – brak zoomu dwoma palcami
+    pts.clear(); pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
     const node = e.target.closest('.gn'); const handle = e.target.closest('.gn-h');
     if (node && (handle || node.classList.contains('hub')) && ed) st = { mode: 'node', node, id: node.dataset.node, x0: e.clientX, y0: e.clientY, orig: { ...L.pos[node.dataset.node] }, moved: false, pid: e.pointerId };
     else st = { mode: 'pan', x0: e.clientX, y0: e.clientY, orig: { ...GV[kind] }, moved: false, pid: e.pointerId };
@@ -1455,12 +1472,6 @@ function bindGraph(cv) {
     if (!pts.has(e.pointerId) || !st) return;
     pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
     const v = GV[kind];
-    if (st.mode === 'pinch') {
-      if (pts.size < 2) return; const [a, b] = [...pts.values()]; const r = cv.getBoundingClientRect();
-      const s = Math.max(0.25, Math.min(2.2, st.s0 * Math.hypot(a.x - b.x, a.y - b.y) / st.d0));
-      const cx = (a.x + b.x) / 2 - r.left, cy = (a.y + b.y) / 2 - r.top;
-      v.s = s; v.x = cx - st.wx * s; v.y = cy - st.wy * s; applyView(cv); return;
-    }
     const dx = e.clientX - st.x0, dy = e.clientY - st.y0;
     if (!st.moved) { if (Math.hypot(dx, dy) < 5) return; st.moved = true; try { cv.setPointerCapture(e.pointerId); } catch (_) { } cv.classList.add(st.mode === 'node' ? 'moving' : 'panning'); if (st.mode === 'node') st.node.classList.add('lift'); }
     if (st.mode === 'node') {
@@ -1474,13 +1485,12 @@ function bindGraph(cv) {
     if (st.moved) SUPPRESS_CLICK_UNTIL = Date.now() + 350;
     if (st.mode === 'node' && st.moved) { st.node.classList.remove('lift'); L.mode = 'custom'; save(); drawEdges(cv); }
     cv.classList.remove('moving', 'panning');
-    if (pts.size === 0) st = null;
-    else if (st.mode === 'pinch') { const [p] = [...pts.values()]; st = { mode: 'pan', x0: p.x, y0: p.y, orig: { ...GV[kind] }, moved: true }; }
+    st = null;
   };
   cv.addEventListener('pointerup', end); cv.addEventListener('pointercancel', end);
   cv.addEventListener('wheel', e => {
-    if (e.ctrlKey || e.metaKey) { e.preventDefault(); const r = cv.getBoundingClientRect(); zoomAt(cv, e.clientX - r.left, e.clientY - r.top, Math.exp(-e.deltaY * 0.01)); }
-    else if (GOPT[kind].full) { e.preventDefault(); const v = GV[kind]; v.x -= e.deltaX; v.y -= e.deltaY; applyView(cv); }
+    if (e.ctrlKey || e.metaKey) { e.preventDefault(); return; } // gest szczypania na touchpadzie – wyłączony
+    if (GOPT[kind].full) { e.preventDefault(); const v = GV[kind]; v.x -= e.deltaX; v.y -= e.deltaY; applyView(cv); }
   }, { passive: false });
 }
 
@@ -1869,8 +1879,8 @@ const ACT = {
   'car-edit': el => {
     const c = carById(el.dataset.id) || {};
     modal(c.id ? 'Edytuj auto' : 'Nowe auto', `<div class="g2"><label>Nazwa / model<input name="name" value="${esc(c.name || '')}" required></label><label>Rejestracja<input name="plate" value="${esc(c.plate || '')}"></label></div>
-      <div class="g3"><label>Miejsc<input type="number" name="seats" min="1" value="${c.seats || 5}"></label><label>Przebieg (km)<input type="number" name="odometer" min="0" value="${c.odometer || 0}"></label><label>Paliwo<select name="fuel">${['diesel', 'benzyna', 'elektryk', 'hybryda'].map(f => opt(f, f, f === (c.fuel || 'diesel'))).join('')}</select></label></div>
-      <div class="g2"><label>EU-kontroll (data)<input type="date" name="euDate" value="${c.euDate || ''}"></label><label>Następny serwis przy (km)<input type="number" name="serviceKm" min="0" value="${c.serviceKm || ''}"></label></div>`, {
+      <div class="g3 tight"><label>Miejsca<input type="number" name="seats" min="1" value="${c.seats || 5}"></label><label>Przebieg (km)<input type="number" name="odometer" min="0" value="${c.odometer || 0}"></label><label>Paliwo<select name="fuel">${['diesel', 'benzyna', 'elektryk', 'hybryda'].map(f => opt(f, f, f === (c.fuel || 'diesel'))).join('')}</select></label></div>
+      <div class="g2"><label>EU-kontroll<input type="date" name="euDate" value="${c.euDate || ''}"></label><label>Serwis przy (km)<input type="number" name="serviceKm" min="0" value="${c.serviceKm || ''}"></label></div>`, {
       onSubmit: fd => { const d = { name: fd.get('name'), plate: fd.get('plate'), seats: +fd.get('seats'), odometer: +fd.get('odometer'), fuel: fd.get('fuel'), euDate: fd.get('euDate'), serviceKm: +fd.get('serviceKm') || 0 }; if (c.id) Object.assign(c, d); else DB.cars.push({ id: uid(), ...d }); log('Zapisano auto ' + d.name); save(); render(); toast('Zapisano'); },
       danger: c.id ? { act: 'car-del', id: c.id } : null,
     });
@@ -1932,7 +1942,7 @@ const ACT = {
       <div class="g2"><label>Grupa rotacyjna<select name="groupId">${DB.groups.map(g => opt(g.id, `${g.name} (${activeUsers().filter(u => u.groupId === g.id).length} os.)`, g.id === t.groupId)).join('')}<option value="" ${t.id && !t.groupId ? 'selected' : ''}>— tylko wybrane osoby —</option></select></label>
       <label>Kierunek<select name="direction">${opt('PL', 'Wyjazd do Polski', t.direction !== 'NO')}${opt('NO', 'Przyjazd do Norwegii', t.direction === 'NO')}</select></label></div>
       <label>Dodatkowe osoby (opcjonalnie)<select name="userIds" multiple size="4">${activeUsers().map(u => opt(u.id, u.name, (t.userIds || []).includes(u.id))).join('')}</select></label>
-      <div class="g3"><label>Data lotu<input type="date" name="date" value="${t.date || ''}" required></label><label>Wylot<input type="time" name="depTime" value="${t.depTime || ''}" required></label><label>Przylot<input type="time" name="arrTime" value="${t.arrTime || ''}"></label></div>
+      <div class="g3 tight"><label>Data lotu<input type="date" name="date" value="${t.date || ''}" required></label><label>Wylot<input type="time" name="depTime" value="${t.depTime || ''}" required></label><label>Przylot<input type="time" name="arrTime" value="${t.arrTime || ''}"></label></div>
       <div class="g3"><label>Nr lotu<input name="flightNo" value="${esc(t.flightNo || '')}" placeholder="DY1052"></label>
       <label>Lotnisko w Norwegii<select name="airportNO">${Object.entries(AIRPORTS).map(([k, a]) => opt(k, a.name, k === (t.airportNO || 'BGO'))).join('')}</select></label>
       <label>Lotnisko w Polsce<input name="airportPL" list="plap" value="${esc(t.airportPL || 'Gdańsk (GDN)')}"><datalist id="plap">${PL_AIRPORTS.map(a => `<option value="${a}">`).join('')}</datalist></label></div>
@@ -2097,6 +2107,10 @@ document.addEventListener('pointerup', () => { if (CD) chipDragEnd(true); });
 document.addEventListener('pointercancel', () => { if (CD) chipDragEnd(false); });
 document.addEventListener('touchmove', e => { if (CD && CD.active) e.preventDefault(); }, { passive: false });
 document.addEventListener('contextmenu', e => { if (e.target.closest('.chip[data-drag]')) e.preventDefault(); });
+/* blokada zoomu dwoma palcami na całej stronie (Android, iOS, touchpad) */
+['gesturestart', 'gesturechange', 'gestureend'].forEach(t => document.addEventListener(t, e => e.preventDefault(), { passive: false }));
+document.addEventListener('touchmove', e => { if (e.touches && e.touches.length > 1) e.preventDefault(); }, { passive: false });
+document.addEventListener('wheel', e => { if (e.ctrlKey) e.preventDefault(); }, { passive: false });
 window.addEventListener('resize', () => { $$('.gcanvas').forEach(cv => { if (GOPT[cv.dataset.gkind]?.full) fitGraph(cv); }); });
 window.addEventListener('hashchange', () => { const v = location.hash.slice(1); if (v && v !== VIEW && VIEWS[v] && v !== 'user') { VIEW = v; render(); } });
 
