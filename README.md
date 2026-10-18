@@ -16,7 +16,8 @@ Aplikacja do zarządzania ekipą w Norwegii: domy, auta, karty paliwowe, godziny
 - **Admin** – wszystko + panel admina (kto był online, logi, profil każdego, kopia zapasowa) + pasek u góry „Podgląd jako: Admin / Kierownik / Foreman / Pracownik”.
 - **Kierownik** – domy, auta, karty, pracownicy, rotacje, bilety, dokumenty, wiadomości.
 - **Foreman** – projekty, poprawianie godzin pracowników, wiadomości.
-- **Pracownik** – swoje godziny, grafik, bilety, dokumenty, potwierdzanie karty paliwowej.
+- **Księgowa** – wszystkie godziny pracowników (Zespół / Projekty), **Wypłaty**: stawki, rozliczenie miesiąca, potrącenia, status „wypłacone”, eksport CSV. Nie widzi mapy, aut, kart ani projektów.
+- **Pracownik** – swoje godziny z szacowaną wypłatą i kalkulatorem, grafik, bilety, dokumenty, potwierdzanie karty paliwowej.
 
 ## Mapa (domy + auta + ludzie)
 
@@ -25,6 +26,11 @@ Jedna wspólna mapa: każdy dom to kafelek połączony z centrum (jak joby w Git
 ## Sterowanie rotacjami
 
 Menu → **Sterowanie rotacjami** (kierownik/admin; skróty także na Pulpicie i w „Grafik i rotacje”). Każda rotacja to karta: status NO/PL, następna zmiana, ludzie, przyciski Edytuj, **−1 / +1 tydzień** (przesuwa cały cykl), Bilety dla grupy, Wiadomość do grupy. Pod spodem przypisywanie ludzi do rotacji i plan „kto gdzie”.
+
+## Wypłaty (księgowa / admin)
+
+Stawka za godzinę jest wybierana w tej kolejności: **indywidualna stawka pracownika** (wygrywa zawsze) → **stawka projektu** → **stawka rotacji** → **stawka domyślna**. Zakładka „Stawki” ustawia wszystkie poziomy, a przycisk ✎ przy pracowniku – stawkę indywidualną, podatek %, dodatek, potrącenia i notatkę. Opcjonalnie nadgodziny (po X h dziennie, +Y%). Zakładka „Rozliczenie”: miesiąc, godziny × stawki, brutto/netto (szac.), znacznik „wypłacone”, szczegóły dni pracy, eksport CSV.
+Pracownik w **Godziny pracy → Moje** widzi „Moja wypłata – szacunkowo” i może doliczyć planowane godziny.
 
 ## Moje konto i zgłoszenia
 

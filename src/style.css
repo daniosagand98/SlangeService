@@ -699,3 +699,30 @@ button.tag{cursor:pointer}
 .gseg.sm{display:inline-flex;gap:4px}
 .rotc .card-h,.rotc .kv,.rotc .tags,.rotc .hbar{margin-bottom:10px}
 .pill.blue{background:rgba(88,166,255,.12);border-color:rgba(88,166,255,.38);color:#79b8ff}
+
+/* ---------- wypłaty ---------- */
+.role.r-ksiegowa{background:rgba(163,113,247,.15);color:#c4a3ff;border-color:rgba(163,113,247,.4)}
+.mypay .card-h h3{display:flex;align-items:center;gap:8px}
+.mypay .card-h h3 .i{color:var(--accent)}
+.paybig{display:flex;flex-direction:column;gap:2px;margin-bottom:12px}
+.paybig b{font-size:30px;font-weight:800;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.paytab{display:flex;flex-direction:column}
+.pl{display:flex;align-items:baseline;gap:10px;padding:7px 0;border-bottom:1px dashed var(--line);font-variant-numeric:tabular-nums}
+.pl b{white-space:nowrap}
+.pl.sum{border-bottom-style:solid;padding-top:10px}
+.pl.neg b{color:#ff8a94}
+.pl.net{border:0;padding-top:10px;font-size:17px}
+.pl.net b{color:var(--green,#56d364);font-size:19px}
+.paycalc{margin-top:14px;padding-top:12px;border-top:1px solid var(--line)}
+.paytbl{width:100%;border-collapse:collapse;font-size:13.5px;min-width:760px}
+.paytbl th{text-align:left;font-size:11.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);padding:8px 10px;border-bottom:1px solid var(--line)}
+.paytbl td{padding:10px;border-bottom:1px solid var(--line);vertical-align:middle;font-variant-numeric:tabular-nums}
+.paytbl tr.paid td{background:rgba(46,160,67,.06)}
+.linkrow{display:inline-flex;align-items:center;gap:8px;background:none;border:0;color:var(--text);cursor:pointer;font:inherit;padding:0;text-align:left}
+.linkrow:hover b{text-decoration:underline}
+.paidchk{display:inline-flex!important;flex-direction:row!important;align-items:center;gap:8px;cursor:pointer;font-size:12px;color:var(--muted)}
+.paidchk input{width:18px;height:18px;accent-color:#2ea043}
+.rate-row{display:flex!important;flex-direction:row!important;align-items:center;gap:10px;padding:6px 0;border-bottom:1px dashed var(--line);font-weight:500}
+.rate-row input{width:120px;flex:none}
+.rate-row .muted{font-weight:400}
+.col.gap{display:flex;flex-direction:column;gap:14px}

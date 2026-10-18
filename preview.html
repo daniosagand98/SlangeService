@@ -719,6 +719,33 @@ button.tag{cursor:pointer}
 .rotc .card-h,.rotc .kv,.rotc .tags,.rotc .hbar{margin-bottom:10px}
 .pill.blue{background:rgba(88,166,255,.12);border-color:rgba(88,166,255,.38);color:#79b8ff}
 
+/* ---------- wypłaty ---------- */
+.role.r-ksiegowa{background:rgba(163,113,247,.15);color:#c4a3ff;border-color:rgba(163,113,247,.4)}
+.mypay .card-h h3{display:flex;align-items:center;gap:8px}
+.mypay .card-h h3 .i{color:var(--accent)}
+.paybig{display:flex;flex-direction:column;gap:2px;margin-bottom:12px}
+.paybig b{font-size:30px;font-weight:800;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.paytab{display:flex;flex-direction:column}
+.pl{display:flex;align-items:baseline;gap:10px;padding:7px 0;border-bottom:1px dashed var(--line);font-variant-numeric:tabular-nums}
+.pl b{white-space:nowrap}
+.pl.sum{border-bottom-style:solid;padding-top:10px}
+.pl.neg b{color:#ff8a94}
+.pl.net{border:0;padding-top:10px;font-size:17px}
+.pl.net b{color:var(--green,#56d364);font-size:19px}
+.paycalc{margin-top:14px;padding-top:12px;border-top:1px solid var(--line)}
+.paytbl{width:100%;border-collapse:collapse;font-size:13.5px;min-width:760px}
+.paytbl th{text-align:left;font-size:11.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);padding:8px 10px;border-bottom:1px solid var(--line)}
+.paytbl td{padding:10px;border-bottom:1px solid var(--line);vertical-align:middle;font-variant-numeric:tabular-nums}
+.paytbl tr.paid td{background:rgba(46,160,67,.06)}
+.linkrow{display:inline-flex;align-items:center;gap:8px;background:none;border:0;color:var(--text);cursor:pointer;font:inherit;padding:0;text-align:left}
+.linkrow:hover b{text-decoration:underline}
+.paidchk{display:inline-flex!important;flex-direction:row!important;align-items:center;gap:8px;cursor:pointer;font-size:12px;color:var(--muted)}
+.paidchk input{width:18px;height:18px;accent-color:#2ea043}
+.rate-row{display:flex!important;flex-direction:row!important;align-items:center;gap:10px;padding:6px 0;border-bottom:1px dashed var(--line);font-weight:500}
+.rate-row input{width:120px;flex:none}
+.rate-row .muted{font-weight:400}
+.col.gap{display:flex;flex-direction:column;gap:14px}
+
 </style>
 </head>
 <body>
@@ -736,8 +763,8 @@ button.tag{cursor:pointer}
    ========================================================= */
 'use strict';
 
-const VERSION = '1.4.0';
-const BUILD = '2026-10-18T03:06:03.233Z'; // build.js wstawia tu datę i godzinę aktualizacji
+const VERSION = '1.5.0';
+const BUILD = '2026-10-18T03:09:47.586Z'; // build.js wstawia tu datę i godzinę aktualizacji
 const DWS_URL = 'https://github.com/daniosagand98';
 function buildLabel() { const d = new Date(BUILD); if (isNaN(d)) return ''; const p = n => String(n).padStart(2, '0'); return `${p(d.getDate())}.${p(d.getMonth() + 1)}.${d.getFullYear()}, godz. ${p(d.getHours())}:${p(d.getMinutes())}`; }
 function footHTML() { const b = buildLabel(); return `<div class="foot-by">Created and designed by <a href="${DWS_URL}" target="_blank" rel="noopener">DWSystem</a></div><div class="foot-ver">CrewControl wersja ${VERSION}${b ? ` · zaktualizowano ${b}` : ''}</div>`; }
@@ -752,6 +779,7 @@ const ROLES = {
   admin: { label: 'Admin', rank: 4 },
   kierownik: { label: 'Kierownik', rank: 3 },
   foreman: { label: 'Foreman', rank: 2 },
+  ksiegowa: { label: 'Księgowa', rank: 2 },
   pracownik: { label: 'Pracownik', rank: 1 },
 };
 const AIRPORTS = {
@@ -798,6 +826,7 @@ const ICP = {
   expand: '<path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/>',
   shrink: '<path d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5"/>',
   minus: '<path d="M5 12h14"/>',
+  coin: '<circle cx="12" cy="12" r="9"/><path d="M14.5 9.2c-.5-.8-1.5-1.2-2.5-1.2-1.4 0-2.5.8-2.5 2s1.1 1.6 2.5 2 2.5.8 2.5 2-1.1 2-2.5 2c-1.1 0-2.1-.5-2.6-1.3M12 6.5V8M12 16v1.5"/>',
   bug: '<rect x="7" y="8" width="10" height="12" rx="5"/><path d="M12 12v8M7 13H3M21 13h-4M7 17l-3 2M17 17l3 2M7 9L4 7M17 9l3-2M9 8a3 3 0 0 1 6 0"/>',
   mail: '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/>',
   flag: '<path d="M5 21V4M5 4h11l-2 4 2 4H5"/>',
@@ -858,7 +887,18 @@ function load() {
   try { DB = JSON.parse(localStorage.getItem(STORE_KEY)); } catch (e) { DB = null; }
   if (!DB) { DB = emptyDB(); if (PREVIEW) seed(); }
   const e = emptyDB(); for (const k in e) if (!DB[k]) DB[k] = e[k];
+  if (PREVIEW) demoPayroll();
   save();
+}
+// demo: księgowa + przykładowe stawki (także dla starszych danych podglądu)
+function demoPayroll() {
+  if (!DB.users.some(u => u.role === 'ksiegowa')) DB.users.push({ id: uid(), name: 'Anna Nowicka', login: 'anna', role: 'ksiegowa', pass: '', phone: '+47 400 22 333', email: 'anna@slangeservice.no', houseId: '', carId: '', groupId: '', active: true, createdAt: Date.now() - 864e5 * 30, lastSeen: Date.now() - 7200e3 });
+  if (!DB.pay) {
+    const P = payCfg(); P.base = 250;
+    DB.groups.forEach((g, i) => { P.groups[g.id] = 260 + i * 15; });
+    if (DB.projects[0]) P.projects[DB.projects[0].id] = 320;
+    const f = DB.users.find(u => u.role === 'foreman'); if (f) userPay(f).rate = 330;
+  }
 }
 function save() {
   try { localStorage.setItem(STORE_KEY, JSON.stringify(DB)); }
@@ -1011,7 +1051,7 @@ let SELECTED = null; // {id, kind} – wybrany pracownik (tap‑to‑assign)
 const ST = { month: monthNow(), hoursTab: 'mine', rotaWeeks: 12, logUser: '', docUser: '', ticketFilter: 'upcoming' };
 
 const rank = (u = ME) => ROLES[u?.role]?.rank || 0;
-const can = { manage: () => rank() >= 3, foreman: () => rank() >= 2, admin: () => rank() >= 4 };
+const can = { manage: () => rank() >= 3, foreman: () => rank() >= 2, admin: () => rank() >= 4, pay: () => ME?.role === 'ksiegowa' || rank() >= 4 };
 const userById = id => DB.users.find(u => u.id === id);
 const nameOf = id => userById(id)?.name || '—';
 const houseById = id => DB.houses.find(h => h.id === id);
@@ -1021,7 +1061,7 @@ const carsOfHouse = hid => hid ? DB.cars.filter(c => c.houseId === hid) : [];
 const projById = id => DB.projects.find(p => p.id === id);
 const activeUsers = () => DB.users.filter(u => u.active !== false && !u.pending);
 // ekipa = ludzie, którzy pracują w godzinach (kierownik = właściciel/koordynator na stałej pensji – bez godzin, domów, rotacji)
-const crew = () => activeUsers().filter(u => u.role !== 'kierownik');
+const crew = () => activeUsers().filter(u => u.role !== 'kierownik' && u.role !== 'ksiegowa');
 const isBoss = (u = ME) => u?.role === 'kierownik';
 
 function touch() {
@@ -1082,20 +1122,23 @@ const userOpts = (sel, filter = () => true, empty = '— wybierz —') => `<opti
 const NAV = [
   { id: 'dash', icon: 'dash', label: 'Pulpit', min: 1 },
   { id: 'hours', icon: 'clock', label: 'Godziny pracy', min: 1 },
-  { id: 'rota', icon: 'cal', label: 'Grafik i rotacje', min: 1 },
+  { id: 'rota', icon: 'cal', label: 'Grafik i rotacje', min: 1, hide: ['ksiegowa'] },
   { id: 'rotations', icon: 'swap', label: 'Sterowanie rotacjami', min: 3 },
-  { id: 'houses', icon: 'house', label: 'Mapa', min: 2 },
-  { id: 'cars', icon: 'car', label: 'Auta', min: 2 },
-  { id: 'cards', icon: 'card', label: 'Karty paliwowe', min: 1 },
+  { id: 'pay', icon: 'coin', label: 'Wypłaty', min: 1, ok: () => can.pay() },
+  { id: 'houses', icon: 'house', label: 'Mapa', min: 2, hide: ['ksiegowa'] },
+  { id: 'cars', icon: 'car', label: 'Auta', min: 2, hide: ['ksiegowa'] },
+  { id: 'cards', icon: 'card', label: 'Karty paliwowe', min: 1, hide: ['ksiegowa'] },
   { id: 'tickets', icon: 'plane', label: 'Bilety i dojazd', min: 1 },
   { id: 'docs', icon: 'file', label: 'Dokumenty', min: 1 },
   { id: 'msgs', icon: 'chat', label: 'Wiadomości', min: 1 },
   { id: 'reports', icon: 'flag', label: 'Zgłoszenia', min: 3 },
-  { id: 'projects', icon: 'folder', label: 'Projekty', min: 2 },
+  { id: 'projects', icon: 'folder', label: 'Projekty', min: 2, hide: ['ksiegowa'] },
   { id: 'people', icon: 'users', label: 'Pracownicy', min: 3 },
   { id: 'admin', icon: 'shield', label: 'Panel admina', min: 4 },
 ];
 const BNAV = ['dash', 'hours', 'rota', 'tickets'];
+const navOk = n => !!n && rank() >= n.min && (!n.ok || n.ok()) && !(n.hide || []).includes(ME?.role);
+const bnav = () => ME?.role === 'ksiegowa' ? ['dash', 'hours', 'pay', 'msgs'] : BNAV;
 
 function myMessages(u = ME) {
   return DB.messages.filter(m => m.fromId === u.id || m.toType === 'all' || (m.toType === 'user' && m.toId === u.id) || (m.toType === 'group' && m.toId === u.groupId));
@@ -1124,7 +1167,7 @@ function previewBar() {
   </div>`;
 }
 function shell(v) {
-  const navItems = NAV.filter(n => rank() >= n.min);
+  const navItems = NAV.filter(navOk);
   const link = (n, cls = '') => { const b = navBadge(n.id); return `<a href="#${n.id}" class="${cls} ${VIEW === n.id ? 'on' : ''}" data-act="go" data-v="${n.id}">${ic(n.icon)}<span>${n.label}</span>${b ? `<b class="badge">${b}</b>` : ''}</a>`; };
   const unread = unreadCount();
   return `${previewBar()}
@@ -1148,7 +1191,7 @@ function shell(v) {
       <section class="view" key="${VIEW}">${v.html}</section>
       <footer class="foot">${footHTML()}<div class="foot-note">${esc(COMPANY)} · ${PREVIEW ? 'tryb podglądu (dane demo, lokalnie)' : 'dane zapisywane lokalnie w tej przeglądarce'}</div></footer>
     </main>
-    <nav class="bnav">${BNAV.map(id => { const n = NAV.find(x => x.id === id); const b = navBadge(id); return `<a href="#${id}" class="${VIEW === id ? 'on' : ''}" data-act="go" data-v="${id}">${ic(n.icon)}<span>${n.label.split(' ')[0]}</span>${b ? `<b class="badge">${b}</b>` : ''}</a>`; }).join('')}
+    <nav class="bnav">${bnav().map(id => { const n = NAV.find(x => x.id === id); const b = navBadge(id); return `<a href="#${id}" class="${VIEW === id ? 'on' : ''}" data-act="go" data-v="${id}">${ic(n.icon)}<span>${n.label.split(' ')[0]}</span>${b ? `<b class="badge">${b}</b>` : ''}</a>`; }).join('')}
       <a href="#more" data-act="menu">${ic('menu')}<span>Więcej</span>${(navBadge('msgs') + navBadge('cards') + navBadge('people')) ? `<b class="badge">${navBadge('msgs') + navBadge('cards') + navBadge('people')}</b>` : ''}</a></nav>
   </div>`;
 }
@@ -1156,7 +1199,7 @@ let LAST_VIEW = null, LAST_ARG = null, LAST_ME = null;
 function render() {
   if (!REAL || !ME) return renderAuth();
   const n = NAV.find(x => x.id === VIEW);
-  if ((n && rank() < n.min) || !VIEWS[VIEW]) { VIEW = 'dash'; ARG = null; }
+  if ((n && !navOk(n)) || !VIEWS[VIEW]) { VIEW = 'dash'; ARG = null; }
   const still = VIEW === LAST_VIEW && ARG === LAST_ARG && ME.id === LAST_ME;
   LAST_VIEW = VIEW; LAST_ARG = ARG; LAST_ME = ME.id;
   const v = VIEWS[VIEW]();
@@ -1368,6 +1411,7 @@ VIEWS.dash = () => {
   </div>`;
 
   if (!isStandalone() && PLATFORM !== 'desktop' && !localStorage.getItem('cc_install_hide')) html += `<div class="ibanner anim">${LOGO ? `<img src="${LOGO}" alt="">` : ''}<div class="grow"><b>Dodaj aplikację do ekranu telefonu</b><div class="muted small">Ikona Slangeservice, otwiera się jak zwykła aplikacja.</div></div><button type="button" class="btn sm primary" data-act="install-help">Pokaż jak</button><button type="button" class="ib sm" data-act="install-hide" aria-label="Ukryj">${ic('x')}</button></div>`;
+  if (can.pay()) { const pm = crew().map(u => payFor(u, M)), gs = pm.reduce((a, p) => a + p.gross, 0), paidN = Object.keys(payCfg().paid[M] || {}).length, worked = pm.filter(p => p.hours).length; html += `<div class="card anim maplink"><div class="row gap">${ic('coin')}<div class="grow"><b>Wypłaty – ${fmtMonth(M)}</b><div class="muted small">Brutto ${money(gs)} · wypłacone ${paidN}/${worked}</div></div><button type="button" class="btn sm primary" data-act="go" data-v="pay">Rozliczenie</button></div></div>`; }
   if (can.manage()) { const np = DB.users.filter(u => u.pending).length, nr = DB.resetRequests.filter(r => r.status === 'open').length; if (np || nr) html += `<div class="alert anim">${ic('users')}<div class="grow">${np ? `<b>${np}</b> ${np === 1 ? 'nowe konto czeka' : 'nowe konta czekają'} na akceptację. ` : ''}${nr ? `<b>${nr}</b> ${nr === 1 ? 'prośba' : 'prośby'} o reset hasła.` : ''}</div><button type="button" class="btn primary sm" data-act="go" data-v="people">Przejdź</button></div>`; }
   if (pend.length) html += pend.map(t => { const c = DB.fuelCards.find(x => x.id === t.cardId); return `<div class="alert anim">${ic('card')}<div class="grow"><b>${esc(nameOf(t.fromId))}</b> przekazuje Ci kartę paliwową <b>${esc(c?.name)}</b> (•••• ${esc(c?.last4)}). Potwierdź, że ją dostałeś.</div><div class="row"><button type="button" class="btn ghost sm" data-act="card-reject" data-id="${t.id}">Odrzuć</button><button type="button" class="btn primary sm" data-act="card-accept" data-id="${t.id}">${ic('check')} Mam kartę</button></div></div>`; }).join('');
 
@@ -1484,7 +1528,7 @@ function entryRow(x, showUser) {
 }
 function monthPicker() { return `<input type="month" class="mpick" value="${ST.month}" data-chg="month">`; }
 VIEWS.hours = () => {
-  const tabs = [...(isBoss() ? [] : [['mine', 'Moje']]), ...(can.foreman() ? [['team', 'Zespół'], ['proj', 'Projekty']] : [])];
+  const tabs = [...(isBoss() || ME.role === 'ksiegowa' ? [] : [['mine', 'Moje']]), ...(can.foreman() ? [['team', 'Zespół'], ['proj', 'Projekty']] : [])];
   if (!tabs.find(t => t[0] === ST.hoursTab)) ST.hoursTab = tabs[0][0];
   let html = `<div class="tabs">${tabs.map(([k, l]) => `<button type="button" class="${ST.hoursTab === k ? 'on' : ''}" data-act="hours-tab" data-k="${k}">${l}</button>`).join('')}<span class="grow"></span>${monthPicker()}</div>`;
   const M = ST.month;
@@ -1498,7 +1542,8 @@ VIEWS.hours = () => {
         <div class="bigtot"><span class="count" data-to="${round2(tot)}" data-dec="${tot % 1 ? 1 : 0}" data-suf=" h">0</span><span class="muted small">${list.length} dni pracy</span></div>
         ${projBars(byP, tot)}
       </div></div>
-      <div class="card anim" style="--i:2"><div class="card-h"><h3>Wpisy</h3></div>${list.length ? list.map(x => entryRow(x)).join('') : empty('Brak wpisów w tym miesiącu', 'clock')}</div>`;
+      ${myPayCard(M)}
+      <div class="card anim" style="--i:3"><div class="card-h"><h3>Wpisy</h3></div>${list.length ? list.map(x => entryRow(x)).join('') : empty('Brak wpisów w tym miesiącu', 'clock')}</div>`;
   } else if (ST.hoursTab === 'team') {
     const list = DB.hours.filter(h => h.date.startsWith(M));
     const rows = crew().map(u => { const l = list.filter(h => h.userId === u.id); const byP = {}; l.forEach(x => (x.splits || []).forEach(s => byP[s.projectId] = (byP[s.projectId] || 0) + s.hours)); return { u, tot: sumH(l), days: new Set(l.map(x => x.date)).size, byP }; }).sort((a, b) => b.tot - a.tot);
@@ -2159,6 +2204,125 @@ VIEWS.user = () => {
 };
 
 /* ----- ADMIN ----- */
+/* =========================================================
+   WYPŁATY – stawki (domyślna → rotacja → projekt → indywidualna) i rozliczenia
+   ========================================================= */
+function payCfg() {
+  const P = DB.pay = DB.pay || {};
+  P.cur = P.cur || 'NOK'; P.base = +P.base || 0; P.groups = P.groups || {}; P.projects = P.projects || {};
+  if (P.tax === undefined) P.tax = 35; if (P.otPct === undefined) P.otPct = 40; P.otAfter = +P.otAfter || 0; P.paid = P.paid || {};
+  return P;
+}
+const userPay = u => (u.pay = u.pay || {});
+const money = n => `${Math.round(n || 0).toLocaleString('pl')} ${payCfg().cur}`;
+const SRC = { ind: 'indywidualna', proj: 'projekt', rot: 'rotacja', base: 'domyślna', none: 'brak stawki' };
+// kolejność: indywidualna stawka pracownika wygrywa zawsze; potem stawka projektu; potem rotacji; na końcu domyślna
+function rateFor(u, projectId) {
+  const P = payCfg(), up = userPay(u);
+  if (+up.rate > 0) return { rate: +up.rate, src: 'ind' };
+  if (projectId && +P.projects[projectId] > 0) return { rate: +P.projects[projectId], src: 'proj' };
+  if (u.groupId && +P.groups[u.groupId] > 0) return { rate: +P.groups[u.groupId], src: 'rot' };
+  if (P.base > 0) return { rate: P.base, src: 'base' };
+  return { rate: 0, src: 'none' };
+}
+function payFor(u, M, extra = null) {
+  const P = payCfg(), up = userPay(u);
+  const list = DB.hours.filter(h => h.userId === u.id && h.date.startsWith(M));
+  const lines = {}; let hours = 0, ot = 0, otAmt = 0;
+  const add = (pid, h) => { if (h <= 0) return; const r = rateFor(u, pid); const k = pid || '_'; const L = lines[k] = lines[k] || { projectId: pid, hours: 0, rate: r.rate, src: r.src, amount: 0 }; L.hours += h; L.amount += h * r.rate; };
+  list.forEach(x => {
+    const net = entryH(x); hours += net;
+    const sp = (x.splits || []).filter(s => s.hours > 0); let used = 0;
+    sp.forEach(s => { add(s.projectId, s.hours); used += s.hours; });
+    if (net - used > 0.01) add('', net - used);
+    if (P.otAfter > 0 && net > P.otAfter) { const o = net - P.otAfter; ot += o; const avg = sp.length ? sp.reduce((a, s) => a + s.hours * rateFor(u, s.projectId).rate, 0) / Math.max(used, 0.01) : rateFor(u, '').rate; otAmt += o * avg * (P.otPct / 100); }
+  });
+  if (extra && extra.hours > 0) { add(extra.projectId || '', extra.hours); hours += extra.hours; }
+  const base = Object.values(lines).reduce((a, l) => a + l.amount, 0);
+  const bonus = +up.bonus || 0, deduct = +up.deduct || 0;
+  const gross = base + otAmt + bonus;
+  const taxPct = up.tax !== undefined && up.tax !== '' ? +up.tax : +P.tax;
+  const tax = gross * taxPct / 100;
+  return { lines: Object.values(lines).sort((a, b) => b.amount - a.amount), hours, days: new Set(list.map(x => x.date)).size, ot, otAmt, bonus, deduct, gross, taxPct, tax, net: gross - tax - deduct, entries: list };
+}
+function payBreakdownHTML(u, p, own = false) {
+  return `<div class="paytab">
+    ${p.lines.map(l => `<div class="pl"><span class="grow">${esc(l.projectId ? projById(l.projectId)?.name || '?' : 'Bez projektu')}<span class="muted small"> · ${fmtH(l.hours)} × ${fmtNum(l.rate)} (${SRC[l.src]})</span></span><b>${money(l.amount)}</b></div>`).join('') || '<div class="muted small">Brak godzin w tym miesiącu</div>'}
+    ${p.otAmt ? `<div class="pl"><span class="grow">Nadgodziny<span class="muted small"> · ${fmtH(p.ot)} · +${payCfg().otPct}%</span></span><b>${money(p.otAmt)}</b></div>` : ''}
+    ${p.bonus ? `<div class="pl"><span class="grow">Dodatek</span><b>${money(p.bonus)}</b></div>` : ''}
+    <div class="pl sum"><span class="grow">Brutto</span><b>${money(p.gross)}</b></div>
+    <div class="pl neg"><span class="grow">Podatek (ok. ${fmtNum(p.taxPct)}%)</span><b>− ${money(p.tax)}</b></div>
+    ${p.deduct ? `<div class="pl neg"><span class="grow">Potrącenia${userPay(u).deductNote ? `<span class="muted small"> · ${esc(userPay(u).deductNote)}</span>` : ''}</span><b>− ${money(p.deduct)}</b></div>` : ''}
+    <div class="pl net"><span class="grow">${own ? 'Na rękę (szacunkowo)' : 'Netto (szacunkowo)'}</span><b>${money(p.net)}</b></div>
+  </div>`;
+}
+// karta „Moja wypłata” w zakładce Godziny → Moje
+function myPayCard(M) {
+  const p = payFor(ME, M), r = rateFor(ME, '');
+  const projs = DB.projects.filter(x => x.active !== false);
+  return `<div class="card anim mypay" style="--i:2"><div class="card-h"><h3>${ic('coin')} Moja wypłata – ${fmtMonth(M)}</h3><span class="pill">szacunkowo</span></div>
+    ${r.src === 'none' && !p.lines.some(l => l.rate) ? '<p class="muted small">Księgowa nie ustawiła jeszcze Twojej stawki – kwoty pojawią się, gdy ją ustawi.</p>' : ''}
+    <div class="paybig"><span class="muted small">Na rękę ok.</span><b data-paynet>${money(p.net)}</b><span class="muted small" data-paygross>brutto ${money(p.gross)} · ${fmtH(p.hours)}</span></div>
+    <div data-paybd>${payBreakdownHTML(ME, p, true)}</div>
+    <div class="paycalc"><div class="lbl">Policz z planowanymi godzinami</div>
+      <div class="g2"><label>Jeszcze godzin w tym miesiącu<input type="number" min="0" step="0.5" inputmode="decimal" data-paycalc="h" placeholder="np. 40"></label>
+      <label>Projekt<select data-paycalc="p"><option value="">— bez projektu —</option>${projs.map(x => opt(x.id, x.name)).join('')}</select></label></div></div>
+    <p class="muted small">To przybliżenie: godziny × stawki ustawione przez księgową, minus szacowany podatek i potrącenia. Ostateczna kwota jest na pasku wypłaty.</p>
+  </div>`;
+}
+function payCalcUpdate(el) {
+  const c = el.closest('.mypay'); if (!c) return;
+  const h = parseFloat(String(c.querySelector('[data-paycalc=h]').value).replace(',', '.')) || 0, pid = c.querySelector('[data-paycalc=p]').value;
+  const p = payFor(ME, ST.month, { hours: h, projectId: pid });
+  c.querySelector('[data-paynet]').textContent = money(p.net);
+  c.querySelector('[data-paygross]').textContent = `brutto ${money(p.gross)} · ${fmtH(p.hours)}${h ? ' (z planowanymi)' : ''}`;
+  c.querySelector('[data-paybd]').innerHTML = payBreakdownHTML(ME, p, true);
+}
+VIEWS.pay = () => {
+  const P = payCfg(), M = ST.month, tab = ST.payTab || 'run';
+  let html = `<div class="tabs"><button type="button" class="${tab === 'run' ? 'on' : ''}" data-act="pay-tab" data-k="run">Rozliczenie</button><button type="button" class="${tab === 'rates' ? 'on' : ''}" data-act="pay-tab" data-k="rates">Stawki</button><span class="grow"></span>${tab === 'run' ? monthPicker() : ''}</div>`;
+  if (tab === 'run') {
+    const paid = P.paid[M] || {};
+    const rows = crew().map(u => ({ u, p: payFor(u, M) })).sort((a, b) => b.p.gross - a.p.gross);
+    const T = rows.reduce((a, r) => ({ h: a.h + r.p.hours, g: a.g + r.p.gross, n: a.n + r.p.net }), { h: 0, g: 0, n: 0 });
+    const noRate = rows.filter(r => r.p.hours && r.p.lines.some(l => !l.rate)).length;
+    html += `<div class="stats">${stat('Godziny – ' + fmtMonth(M), fmtH(T.h), { icon: 'clock' })}${stat('Brutto razem', money(T.g), { icon: 'coin', tone: 'blue', i: 1 })}${stat('Netto (szac.)', money(T.n), { icon: 'check', tone: 'green', i: 2 })}${stat('Wypłacone', `${rows.filter(r => paid[r.u.id]).length}/${rows.filter(r => r.p.hours).length}`, { icon: 'card', i: 3 })}</div>`;
+    if (noRate) html += `<div class="alert anim">${ic('warn')}<div class="grow"><b>${noRate}</b> ${noRate === 1 ? 'osoba ma' : 'osób ma'} godziny bez stawki – ustaw stawkę domyślną, rotacji, projektu albo indywidualną.</div><button type="button" class="btn primary sm" data-act="pay-tab" data-k="rates">Stawki</button></div>`;
+    html += `<div class="row wrap gap"><button type="button" class="btn ghost" data-act="pay-export">${ic('dl')} Eksport CSV (${fmtMonth(M)})</button></div>
+    <div class="card anim"><div class="tl-wrap"><table class="paytbl"><thead><tr><th>Pracownik</th><th>Rotacja</th><th>Godziny</th><th>Stawka</th><th>Brutto</th><th>Netto (szac.)</th><th>Wypłacone</th><th></th></tr></thead><tbody>
+    ${rows.map(({ u, p }) => { const rs = [...new Set(p.lines.map(l => `${fmtNum(l.rate)} (${SRC[l.src]})`))]; return `<tr class="${paid[u.id] ? 'paid' : ''}">
+      <td><button type="button" class="linkrow" data-act="pay-detail" data-id="${u.id}">${avatar(u)}<b>${esc(u.name)}</b></button></td>
+      <td>${esc(groupById(u.groupId)?.name || '—')}</td><td>${fmtH(p.hours)}${p.ot ? `<div class="muted small">nadg. ${fmtH(p.ot)}</div>` : ''}</td>
+      <td class="small">${rs.length ? rs.map(esc).join('<br>') : `<span class="muted">${fmtNum(rateFor(u, '').rate)} (${SRC[rateFor(u, '').src]})</span>`}</td>
+      <td><b>${money(p.gross)}</b></td><td>${money(p.net)}</td>
+      <td><label class="paidchk"><input type="checkbox" data-chg="pay-paid" data-id="${u.id}" ${paid[u.id] ? 'checked' : ''} ${p.hours ? '' : 'disabled'}><span>${paid[u.id] ? fmtTs(paid[u.id]) : ''}</span></label></td>
+      <td><button type="button" class="ib sm" data-act="pay-user" data-id="${u.id}" aria-label="Ustawienia wypłaty">${ic('edit')}</button></td></tr>`; }).join('')}
+    </tbody></table></div></div>`;
+  } else {
+    const inp = (name, val, ph = '') => `<input type="number" min="0" step="0.01" inputmode="decimal" name="${name}" value="${val || ''}" placeholder="${ph}">`;
+    html += `<form class="col gap" data-sub="pay-rates">
+      <div class="card anim"><div class="card-h"><h3>Ogólne</h3></div>
+        <p class="muted small">Kolejność: <b>indywidualna stawka pracownika</b> → stawka <b>projektu</b> → stawka <b>rotacji</b> → stawka <b>domyślna</b>. Puste pole = nie ustawiono (bierze następną z kolejki).</p>
+        <div class="g3"><label>Stawka domyślna / h${inp('base', P.base, 'np. 250')}</label><label>Waluta<select name="cur">${['NOK', 'PLN', 'EUR'].map(c => opt(c, c, c === P.cur)).join('')}</select></label><label>Podatek domyślny %${inp('tax', P.tax, '35')}</label></div>
+        <div class="g2"><label>Nadgodziny po ilu h dziennie (0 = wyłączone)${inp('otAfter', P.otAfter, '0')}</label><label>Dodatek za nadgodziny %${inp('otPct', P.otPct, '40')}</label></div></div>
+      <div class="grid2"><div class="card anim" style="--i:1"><div class="card-h"><h3>Stawki rotacji</h3></div>
+        ${DB.groups.map(g => `<label class="rate-row"><span class="grow"><span class="gdot" style="--c:${esc(g.color)}"></span> ${esc(g.name)} <span class="muted small">${g.weeksIn}/${g.weeksOut}</span></span>${inp('g_' + g.id, P.groups[g.id], P.base || '—')}</label>`).join('') || empty('Brak rotacji', 'cal')}</div>
+      <div class="card anim" style="--i:2"><div class="card-h"><h3>Stawki projektów</h3></div>
+        ${DB.projects.map(p => `<label class="rate-row"><span class="grow">${esc(p.name)} <span class="muted small">${esc(p.code || '')}</span></span>${inp('p_' + p.id, P.projects[p.id], 'jak rotacja')}</label>`).join('') || empty('Brak projektów', 'folder')}</div></div>
+      <div class="card anim" style="--i:3"><div class="card-h"><h3>Stawki indywidualne (wygrywają zawsze)</h3></div>
+        ${crew().map(u => { const auto = (() => { const up = userPay(u), keep = up.rate; up.rate = ''; const r = rateFor(u, ''); up.rate = keep; return r; })(); return `<label class="rate-row">${avatar(u)}<span class="grow">${esc(u.name)} <span class="muted small">${esc(groupById(u.groupId)?.name || 'bez rotacji')} · bez indywidualnej: ${fmtNum(auto.rate)} (${SRC[auto.src]})</span></span>${inp('u_' + u.id, userPay(u).rate, 'auto')}</label>`; }).join('')}</div>
+      <button class="btn primary block" type="submit">${ic('check')} Zapisz stawki</button></form>`;
+  }
+  return { title: 'Wypłaty', sub: tab === 'run' ? 'Rozliczenie miesiąca – godziny × stawki, potrącenia, status wypłaty' : 'Stawki rotacji, projektów i indywidualne', html };
+};
+function payDetail(u) {
+  const M = ST.month, p = payFor(u, M);
+  modal(`${u.name} – ${fmtMonth(M)}`, `${payBreakdownHTML(u, p)}
+    <div class="lbl" style="margin-top:14px">Dni pracy (${p.days})</div>
+    ${p.entries.sort((a, b) => a.date.localeCompare(b.date)).map(x => `<div class="li sm"><span class="grow">${fmtDate(x.date)} · ${x.from}–${x.to}</span><span class="muted small">${(x.splits || []).map(s => esc(projById(s.projectId)?.name || '?') + ' ' + fmtH(s.hours)).join(', ')}</span><b>${fmtH(entryH(x))}</b></div>`).join('') || empty('Brak wpisów', 'clock')}
+    <div class="row end"><button type="button" class="btn ghost" data-act="pay-user" data-id="${u.id}">${ic('edit')} Ustawienia wypłaty</button></div>`, { wide: true });
+}
+
 /* ----- ZGŁOSZENIA (błędy → admin, zgłoszenia/informacje/skargi → kierownik) ----- */
 const RTYPE = { bug: { label: 'Błąd w aplikacji', icon: 'bug', tone: 'warn' }, info: { label: 'Informacja', icon: 'chat', tone: 'blue' }, request: { label: 'Zgłoszenie', icon: 'flag', tone: 'blue' }, complaint: { label: 'Skarga', icon: 'warn', tone: 'err' } };
 // admin widzi wszystko; kierownik nie widzi błędów aplikacji (te idą do admina)
@@ -2304,6 +2468,25 @@ const ACT = {
     modal('Odpowiedź', `<p class="muted small">Odpowiedź zobaczy autor w „Moje konto → Moje zgłoszenia”${r.anon ? ' (także przy zgłoszeniu anonimowym – bez ujawniania autora)' : ''}.</p><label>Treść<textarea name="text" rows="4" required>${esc(r.reply?.text || '')}</textarea></label>`, {
       submitLabel: 'Wyślij odpowiedź', onSubmit: fd => { r.reply = { text: String(fd.get('text')).trim(), byId: ME.id, at: Date.now() }; r.replySeen = false; log('Odpowiedziano na zgłoszenie'); save(); render(); toast('Odpowiedź zapisana'); },
     });
+  },
+  'pay-tab': el => { ST.payTab = el.dataset.k; render(); },
+  'pay-detail': el => payDetail(userById(el.dataset.id)),
+  'pay-user': el => {
+    const u = userById(el.dataset.id); if (!u || !can.pay()) return; const up = userPay(u), P = payCfg();
+    const auto = (() => { const k = up.rate; up.rate = ''; const r = rateFor(u, ''); up.rate = k; return r; })();
+    modal('Wypłata – ' + u.name, `<p class="muted small">${esc(groupById(u.groupId)?.name || 'Bez rotacji')} · bez stawki indywidualnej: <b>${fmtNum(auto.rate)} ${P.cur}/h</b> (${SRC[auto.src]}; projekty mogą mieć własne stawki).</p>
+      <div class="g2"><label>Stawka indywidualna / h (puste = auto)<input type="number" name="rate" min="0" step="0.01" value="${up.rate || ''}" placeholder="auto"></label><label>Podatek % (puste = ${fmtNum(P.tax)}%)<input type="number" name="tax" min="0" max="100" step="0.1" value="${up.tax ?? ''}"></label></div>
+      <div class="g2"><label>Dodatek stały / mies.<input type="number" name="bonus" min="0" step="1" value="${up.bonus || ''}"></label><label>Potrącenia / mies.<input type="number" name="deduct" min="0" step="1" value="${up.deduct || ''}"></label></div>
+      <label>Opis potrąceń<input name="deductNote" value="${esc(up.deductNote || '')}" placeholder="np. mieszkanie, zaliczka"></label>
+      <label>Notatka księgowej (widzi tylko księgowa i admin)<textarea name="note" rows="2">${esc(up.note || '')}</textarea></label>`, {
+      submitLabel: 'Zapisz', onSubmit: fd => { const num = k => { const v = String(fd.get(k) || '').replace(',', '.').trim(); return v === '' ? '' : +v; }; Object.assign(up, { rate: num('rate'), tax: num('tax'), bonus: num('bonus') || 0, deduct: num('deduct') || 0, deductNote: String(fd.get('deductNote') || ''), note: String(fd.get('note') || '') }); log(`Ustawienia wypłaty: ${u.name}`); save(); render(); toast('Zapisano'); },
+    });
+  },
+  'pay-export': () => {
+    const M = ST.month; const rows = [['Pracownik', 'Rotacja', 'Godziny', 'Nadgodziny', 'Brutto', 'Podatek', 'Potrącenia', 'Netto', 'Wypłacone']];
+    crew().forEach(u => { const p = payFor(u, M); rows.push([u.name, groupById(u.groupId)?.name || '', fmtNum(p.hours), fmtNum(p.ot), Math.round(p.gross), Math.round(p.tax), Math.round(p.deduct), Math.round(p.net), (payCfg().paid[M] || {})[u.id] ? 'tak' : 'nie']); });
+    const csv = '\ufeff' + rows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(';')).join('\n');
+    const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' })); a.download = `wyplaty-${M}.csv`; document.body.appendChild(a); a.click(); a.remove(); log('Eksport wypłat ' + M);
   },
   'rep-tab': el => { ST.repTab = el.dataset.k; render(); },
   'logout': () => { closeModal(); logout(); },
@@ -2558,6 +2741,7 @@ function msgModal(type = 'user', toId = '') {
   });
 }
 const CHG = {
+  'pay-paid': el => { const P = payCfg(), M = ST.month; const m = P.paid[M] = P.paid[M] || {}; if (el.checked) m[el.dataset.id] = Date.now(); else delete m[el.dataset.id]; log(`Wypłata ${nameOf(el.dataset.id)} ${M}: ${el.checked ? 'wypłacone' : 'cofnięte'}`); save(); render(); },
   'rep-type': el => { ST.repType = el.value; render(); },
   'shots': el => {
     const box = el.closest('label').nextElementSibling; const fs = [...el.files];
@@ -2586,6 +2770,15 @@ const CHG = {
   },
 };
 const SUB = {
+  'pay-rates': f => {
+    if (!can.pay()) return; const P = payCfg(), fd = new FormData(f);
+    const num = k => { const v = String(fd.get(k) ?? '').replace(',', '.').trim(); return v === '' ? '' : +v; };
+    P.base = +num('base') || 0; P.cur = fd.get('cur') || 'NOK'; P.tax = num('tax') === '' ? 0 : num('tax'); P.otAfter = +num('otAfter') || 0; P.otPct = num('otPct') === '' ? 40 : num('otPct');
+    DB.groups.forEach(g => { const v = num('g_' + g.id); if (v === '') delete P.groups[g.id]; else P.groups[g.id] = v; });
+    DB.projects.forEach(p => { const v = num('p_' + p.id); if (v === '') delete P.projects[p.id]; else P.projects[p.id] = v; });
+    crew().forEach(u => { userPay(u).rate = num('u_' + u.id); });
+    log('Zapisano stawki wypłat'); save(); render(); toast('Stawki zapisane');
+  },
   'hours-add': f => addHours(readHours(new FormData(f))),
   'auth-login': authLogin,
   'auth-register': authRegister,
@@ -2595,7 +2788,7 @@ const SUB = {
 
 /* ---------- menu mobilne ---------- */
 function openMenu() {
-  const items = NAV.filter(n => rank() >= n.min);
+  const items = NAV.filter(navOk);
   const d = document.createElement('div'); d.className = 'sheet-ov'; d.dataset.act = 'close-menu';
   d.innerHTML = `<div class="sheet" onclick="event.stopPropagation()"><div class="grab"></div><div class="sheet-grid">${items.map(n => { const b = navBadge(n.id); return `<a href="#${n.id}" class="${VIEW === n.id ? 'on' : ''}" data-act="go" data-v="${n.id}">${ic(n.icon)}<span>${n.label}</span>${b ? `<b class="badge">${b}</b>` : ''}</a>`; }).join('')}</div>
   <button type="button" class="me wide" data-act="profile">${avatar(ME)}<div><div class="me-n">${esc(ME.name)}</div><div class="me-r">${ROLES[ME.role].label}</div></div></button></div>`;
@@ -2615,6 +2808,7 @@ document.addEventListener('click', e => {
 document.addEventListener('change', e => { const el = e.target.closest('[data-chg]'); if (el && CHG[el.dataset.chg]) CHG[el.dataset.chg](el, e); });
 document.addEventListener('input', e => {
   const b = e.target.closest('.hform'); if (b) updHoursTotal(b);
+  if (e.target.matches('[data-paycalc]')) payCalcUpdate(e.target);
   if (e.target.matches('[data-gsearch]')) { const q = e.target.value.trim().toLowerCase(); $$('.chip', e.target.closest('.gpanel')).forEach(c => { c.style.display = !q || (c.dataset.name || '').includes(q) ? '' : 'none'; }); }
 });
 document.addEventListener('submit', e => {
