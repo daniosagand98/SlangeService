@@ -6,8 +6,11 @@
    ========================================================= */
 'use strict';
 
-const VERSION = '1.2.0';
-const BUILD = '2026-10-18';
+const VERSION = '1.4.0';
+const BUILD = '__BUILD_TIME__'; // build.js wstawia tu datę i godzinę aktualizacji
+const DWS_URL = 'https://github.com/daniosagand98';
+function buildLabel() { const d = new Date(BUILD); if (isNaN(d)) return ''; const p = n => String(n).padStart(2, '0'); return `${p(d.getDate())}.${p(d.getMonth() + 1)}.${d.getFullYear()}, godz. ${p(d.getHours())}:${p(d.getMinutes())}`; }
+function footHTML() { const b = buildLabel(); return `<div class="foot-by">Created and designed by <a href="${DWS_URL}" target="_blank" rel="noopener">DWSystem</a></div><div class="foot-ver">CrewControl wersja ${VERSION}${b ? ` · zaktualizowano ${b}` : ''}</div>`; }
 const COMPANY = 'Slangeservice AS';
 const PREVIEW = !!window.CC_PREVIEW;
 const STORE_KEY = PREVIEW ? 'cc_preview_db_v1' : 'cc_db_v1';
@@ -65,6 +68,10 @@ const ICP = {
   expand: '<path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/>',
   shrink: '<path d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5"/>',
   minus: '<path d="M5 12h14"/>',
+  bug: '<rect x="7" y="8" width="10" height="12" rx="5"/><path d="M12 12v8M7 13H3M21 13h-4M7 17l-3 2M17 17l3 2M7 9L4 7M17 9l3-2M9 8a3 3 0 0 1 6 0"/>',
+  mail: '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/>',
+  flag: '<path d="M5 21V4M5 4h11l-2 4 2 4H5"/>',
+  lock: '<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>',
 };
 const ic = (n, c = '') => `<svg class="i ${c}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">${ICP[n] || ''}</svg>`;
 
@@ -116,7 +123,7 @@ async function sha(s) {
 
 /* ---------- baza danych ---------- */
 let DB;
-function emptyDB() { return { users: [], houses: [], cars: [], refuels: [], fuelCards: [], cardTransfers: [], projects: [], hours: [], groups: [], tickets: [], docs: [], messages: [], logs: [], resetRequests: [], meta: {} }; }
+function emptyDB() { return { users: [], houses: [], cars: [], refuels: [], fuelCards: [], cardTransfers: [], projects: [], hours: [], groups: [], tickets: [], docs: [], messages: [], logs: [], resetRequests: [], reports: [], meta: {} }; }
 function load() {
   try { DB = JSON.parse(localStorage.getItem(STORE_KEY)); } catch (e) { DB = null; }
   if (!DB) { DB = emptyDB(); if (PREVIEW) seed(); }
@@ -346,12 +353,14 @@ const NAV = [
   { id: 'dash', icon: 'dash', label: 'Pulpit', min: 1 },
   { id: 'hours', icon: 'clock', label: 'Godziny pracy', min: 1 },
   { id: 'rota', icon: 'cal', label: 'Grafik i rotacje', min: 1 },
-  { id: 'houses', icon: 'house', label: 'Mapa domów', min: 2 },
+  { id: 'rotations', icon: 'swap', label: 'Sterowanie rotacjami', min: 3 },
+  { id: 'houses', icon: 'house', label: 'Mapa', min: 2 },
   { id: 'cars', icon: 'car', label: 'Auta', min: 2 },
   { id: 'cards', icon: 'card', label: 'Karty paliwowe', min: 1 },
   { id: 'tickets', icon: 'plane', label: 'Bilety i dojazd', min: 1 },
   { id: 'docs', icon: 'file', label: 'Dokumenty', min: 1 },
   { id: 'msgs', icon: 'chat', label: 'Wiadomości', min: 1 },
+  { id: 'reports', icon: 'flag', label: 'Zgłoszenia', min: 3 },
   { id: 'projects', icon: 'folder', label: 'Projekty', min: 2 },
   { id: 'people', icon: 'users', label: 'Pracownicy', min: 3 },
   { id: 'admin', icon: 'shield', label: 'Panel admina', min: 4 },
@@ -366,6 +375,7 @@ const pendingForMe = (u = ME) => DB.cardTransfers.filter(t => t.status === 'pend
 function navBadge(id) {
   if (id === 'msgs') return unreadCount();
   if (id === 'cards') return pendingForMe().length;
+  if (id === 'reports') return openReportsCount();
   if (id === 'people' && can.manage()) return DB.users.filter(u => u.pending).length + (DB.resetRequests || []).filter(r => r.status === 'open').length;
   return 0;
 }
@@ -406,7 +416,7 @@ function shell(v) {
         <button type="button" class="ib av-btn" data-act="profile">${avatar(ME)}</button>
       </header>
       <section class="view" key="${VIEW}">${v.html}</section>
-      <footer class="foot">CrewControl v${VERSION} · ${BUILD} · ${esc(COMPANY)} · ${PREVIEW ? 'tryb podglądu (dane demo, lokalnie)' : 'dane zapisywane lokalnie w tej przeglądarce'}</footer>
+      <footer class="foot">${footHTML()}<div class="foot-note">${esc(COMPANY)} · ${PREVIEW ? 'tryb podglądu (dane demo, lokalnie)' : 'dane zapisywane lokalnie w tej przeglądarce'}</div></footer>
     </main>
     <nav class="bnav">${BNAV.map(id => { const n = NAV.find(x => x.id === id); const b = navBadge(id); return `<a href="#${id}" class="${VIEW === id ? 'on' : ''}" data-act="go" data-v="${id}">${ic(n.icon)}<span>${n.label.split(' ')[0]}</span>${b ? `<b class="badge">${b}</b>` : ''}</a>`; }).join('')}
       <a href="#more" data-act="menu">${ic('menu')}<span>Więcej</span>${(navBadge('msgs') + navBadge('cards') + navBadge('people')) ? `<b class="badge">${navBadge('msgs') + navBadge('cards') + navBadge('people')}</b>` : ''}</a></nav>
@@ -495,7 +505,7 @@ function renderAuth() {
       <label class="btn ghost block filebtn">${ic('up')} Wczytaj kopię zapasową<input type="file" accept=".json,application/json" data-chg="restore" hidden></label>
       <button type="button" class="link center" data-act="install-help">${ic('dl')} Jak dodać do ekranu telefonu?</button>
     </div>
-    <div class="foot">CrewControl v${VERSION} · ${BUILD} · ${esc(COMPANY)}</div>
+    <div class="foot">${footHTML()}</div>
   </div></div>`;
 }
 async function authLogin(f) {
@@ -621,7 +631,7 @@ VIEWS.dash = () => {
   </div>`;
   if (can.manage()) html += `<div class="qa anim" style="--i:1">
     <button type="button" class="qa-b" data-act="hours-add-for">${ic('clock')}<span>Godziny pracownika</span></button>
-    <button type="button" class="qa-b" data-act="group-edit">${ic('cal')}<span>Nowa rotacja</span></button>
+    <button type="button" class="qa-b" data-act="go" data-v="rotations">${ic('swap')}<span>Rotacje</span></button>
     <button type="button" class="qa-b" data-act="ticket-edit">${ic('plane')}<span>Wyślij bilety</span></button>
     <button type="button" class="qa-b" data-act="user-edit">${ic('users')}<span>Dodaj pracownika</span></button>
     <button type="button" class="qa-b" data-act="msg-new">${ic('send')}<span>Wiadomość</span></button>
@@ -649,7 +659,7 @@ VIEWS.dash = () => {
     const moves = [];
     DB.groups.forEach(gr => { const n = nextChange(gr, T); if (n && n.days <= 21) moves.push({ g: gr, ...n, cnt: ws.filter(u => u.groupId === gr.id).length }); });
     html += `<div class="grid2">
-      <div class="card anim" style="--i:7"><div class="card-h"><h3>Najbliższe zmiany rotacji</h3></div>
+      <div class="card anim" style="--i:7"><div class="card-h"><h3>Najbliższe zmiany rotacji</h3><button type="button" class="btn sm ghost" data-act="go" data-v="rotations">Zarządzaj</button></div>
         ${moves.length ? moves.sort((a, b) => a.days - b.days).map(m => `<div class="li"><span class="gdot" style="--c:${esc(m.g.color)}"></span><div class="grow"><b>${esc(m.g.name)}</b> <span class="muted small">(${m.cnt} os.)</span><div class="muted small">${m.to === 'NO' ? 'Przyjazd do Norwegii' : 'Wyjazd do Polski'} · ${fmtDate(m.date)}</div></div><span class="pill ${m.days <= 7 ? 'warn' : ''}">za ${m.days} dni</span></div>`).join('') : empty('Brak zmian w ciągu 3 tygodni', 'cal')}
       </div>
       <div class="card anim" style="--i:8"><div class="card-h"><h3>Auta – przypomnienia</h3></div>
@@ -788,15 +798,38 @@ function projBars(byP, tot) {
 }
 
 /* ----- GRAFIK / ROTACJE ----- */
+/* ----- STEROWANIE ROTACJAMI (kierownik / admin) ----- */
+VIEWS.rotations = () => {
+  const T = isoLocal(), ws = crew(), noGroup = ws.filter(u => !groupById(u.groupId));
+  const cards = DB.groups.map((gr, i) => {
+    const s = rotStatus(gr, T), n = nextChange(gr, T), mem = ws.filter(u => u.groupId === gr.id);
+    const len = ((s === 'NO' ? gr.weeksIn : gr.weeksOut) || 1) * 7, pct = n ? Math.max(4, Math.min(100, 100 - n.days / len * 100)) : 0;
+    return `<div class="card rotc anim" style="--i:${i};--gc:${esc(gr.color || '#ff7a1a')}">
+      <div class="card-h"><div class="rotc-t"><span class="gdot" style="--c:${esc(gr.color)}"></span><h3>${esc(gr.name)}</h3></div>${statusPill(s)}</div>
+      <div class="kv"><div><span>Cykl NO/PL</span><b>${gr.weeksIn}/${gr.weeksOut} tyg.</b></div><div><span>Osób</span><b>${mem.length}</b></div><div><span>Następna zmiana</span><b>${n ? fmtDate(n.date) : '—'}</b></div><div><span>Start cyklu</span><b>${fmtDate(gr.start)}</b></div></div>
+      ${n ? `<div class="hbar"><i style="--w:${pct}%"></i></div><div class="muted small">${n.to === 'PL' ? 'Wyjazd do Polski' : 'Przyjazd do Norwegii'} za <b>${n.days}</b> ${n.days === 1 ? 'dzień' : 'dni'}</div>` : ''}
+      <div class="tags">${mem.map(u => `<span class="tag">${esc(u.name)}</span>`).join('') || '<span class="muted small">Nikt nie przypisany</span>'}</div>
+      <div class="row gap wrap">
+        <button type="button" class="btn sm primary" data-act="group-edit" data-id="${gr.id}">${ic('edit')} Edytuj</button>
+        <div class="gseg sm"><button type="button" class="btn sm ghost" data-act="group-shift" data-id="${gr.id}" data-d="-7" title="Przesuń cały cykl o tydzień wcześniej">− 1 tydz.</button><button type="button" class="btn sm ghost" data-act="group-shift" data-id="${gr.id}" data-d="7" title="Przesuń cały cykl o tydzień później">+ 1 tydz.</button></div>
+        <button type="button" class="btn sm ghost" data-act="ticket-edit" data-group="${gr.id}">${ic('plane')} Bilety dla grupy</button>
+        <button type="button" class="btn sm ghost" data-act="group-msg" data-id="${gr.id}">${ic('send')} Wiadomość</button>
+      </div>
+    </div>`;
+  }).join('');
+  let html = `<div class="stats">${stat('Rotacje', DB.groups.length, { icon: 'cal' })}${stat('W Norwegii teraz', ws.filter(u => rotStatus(groupById(u.groupId), T) === 'NO').length, { icon: 'pin', tone: 'blue', i: 1 })}${stat('W Polsce teraz', ws.filter(u => rotStatus(groupById(u.groupId), T) === 'PL').length, { icon: 'house', tone: 'green', i: 2 })}${stat('Bez rotacji', noGroup.length, { icon: 'warn', tone: noGroup.length ? 'warn' : '', i: 3 })}</div>`;
+  html += DB.groups.length ? `<div class="cgrid">${cards}</div>` : `<button type="button" class="empty-add" data-act="group-edit">${ic('plus')}<span>Utwórz pierwszą rotację</span></button>`;
+  if (DB.groups.length) html += `<div class="card anim" style="--i:4"><div class="card-h"><h3>Kto w której rotacji</h3></div><p class="muted small">Przeciągnij pracownika do grupy (albo dotknij osobę, a potem grupę).</p>
+    ${board('group', DB.groups.map(gr => { const s = rotStatus(gr, T); return { id: gr.id, title: gr.name, color: gr.color, sub: `${gr.weeksIn}/${gr.weeksOut} tyg. · teraz ${s === 'NO' ? 'NO' : 'PL'}`, edit: 'group-edit' }; }), true)}</div>`;
+  html += `<div class="card anim" style="--i:5"><div class="card-h"><h3>Plan rotacji – kto gdzie</h3><select data-chg="rota-weeks" class="mini">${[8, 12, 16, 26].map(w => opt(w, w + ' tyg.', w === ST.rotaWeeks)).join('')}</select></div>${teamTimeline()}</div>`;
+  return { title: 'Sterowanie rotacjami', sub: 'Tworzenie, edycja, przesuwanie cykli i przypisywanie ludzi – w jednym miejscu', html, action: `<button type="button" class="btn primary" data-act="group-edit">${ic('plus')}<span class="hide-s"> Nowa rotacja</span></button>` };
+};
 VIEWS.rota = () => {
   const T = isoLocal(); const g = groupById(ME.groupId); const st = rotStatus(g, T); const nc = nextChange(g, T);
   const personal = !can.manage() || !!g;
   let html = '';
   if (can.manage()) {
-    html += `<div class="card anim"><div class="card-h"><h3>Grupy rotacyjne</h3><button type="button" class="btn sm primary" data-act="group-edit">${ic('plus')} Nowa rotacja</button></div>
-      <p class="muted small">Utwórz grupę (np. „Rotacja A – 3/3”), ustaw tygodnie w Norwegii i w Polsce oraz pierwszy dzień w Norwegii. Potem przeciągnij pracowników do grupy (albo dotknij osobę, a potem grupę).</p>
-      ${DB.groups.length ? board('group', DB.groups.map(gr => { const s = rotStatus(gr, T), n = nextChange(gr, T); return { id: gr.id, title: gr.name, color: gr.color, sub: `${gr.weeksIn}/${gr.weeksOut} tyg. · teraz ${s === 'NO' ? 'NO' : 'PL'}${n ? ` · zmiana ${fmtDate(n.date)}` : ''}`, edit: 'group-edit' }; }), true) : `<button type="button" class="empty-add" data-act="group-edit">${ic('plus')}<span>Utwórz pierwszą rotację</span></button>`}
-    </div>`;
+    html += `<div class="card maplink anim"><div class="row gap">${ic('swap')}<div class="grow"><b>Sterowanie rotacjami</b><div class="muted small">${DB.groups.length} ${DB.groups.length === 1 ? 'rotacja' : 'rotacji'} · tworzenie, przesuwanie cykli, przypisywanie ludzi</div></div><button type="button" class="btn sm primary" data-act="go" data-v="rotations">Otwórz</button></div></div>`;
   }
   if (personal) html += `<div class="card hero2 anim ${st === 'NO' ? 'no' : st === 'PL' ? 'pl' : ''}">
     <div class="h2-l"><div class="muted small">Twój status dziś</div><div class="h2-big">${st === 'NO' ? 'Jesteś w Norwegii' : st === 'PL' ? 'Jesteś w Polsce' : 'Brak rotacji'}</div>
@@ -862,14 +895,10 @@ function assign(kind, userId, targetId) {
 /* =========================================================
    MAPA – kafelki jak w GitHub Actions / mapa myśli
    ========================================================= */
-const GV = {};   // widok mapy per rodzaj: {s, x, y}
-const GOPT = { house: { filter: 'free', full: false }, car: { filter: 'free', full: false } };
+const GV = {};   // widok mapy: {s, x, y}
+const GOPT = { map: { filter: 'house', full: false } };
 let LAST_ASSIGNED = null;
 let SUPPRESS_CLICK_UNTIL = 0;
-const G_CFG = {
-  house: { field: 'houseId', items: () => DB.houses, cap: h => +h.beds || 0, sub: h => h.address || 'brak adresu', hubT: COMPANY, hubS: (n, u, c) => `${n} domów · ${u}/${c} miejsc zajętych`, none: 'Bez domu', unit: 'dom', edit: 'house-edit', icon: 'house', pin: 'pin' },
-  car: { field: 'carId', items: () => DB.cars, cap: c => +c.seats || 0, sub: c => `${c.plate || '—'} · ${houseById(c.houseId)?.name || 'bez domu'}`, hubT: 'Flota aut', hubS: (n, u, c) => `${n} aut · ${u}/${c} miejsc zajętych`, none: 'Bez auta', unit: 'auto', edit: 'car-edit', icon: 'car', pin: 'car' },
-};
 function layoutOf(kind) {
   DB.layout = DB.layout || {};
   const L = DB.layout[kind] = DB.layout[kind] || {};
@@ -880,54 +909,95 @@ function personChip(u, kind, opts = {}) {
   const sel = SELECTED?.id === u.id && SELECTED.kind === kind;
   return `<div class="chip ${sel ? 'sel' : ''} ${u.id === ME.id ? 'me' : ''} ${LAST_ASSIGNED === u.id ? 'pop' : ''}" ${opts.editable ? `data-drag="${u.id}" data-kind="${kind}" data-act="pick"` : ''} data-name="${esc(u.name.toLowerCase())}">${avatar(u)}<span class="cn">${esc(u.name)}</span>${opts.where ? `<span class="cw">${esc(opts.where)}</span>` : ''}</div>`;
 }
-function graphHTML(kind) {
-  const C = G_CFG[kind], ed = can.manage(), ws = crew(), items = C.items(), o = GOPT[kind];
-  const ids = new Set(items.map(i => i.id));
-  const totalCap = items.reduce((s, i) => s + C.cap(i), 0);
-  const used = ws.filter(u => ids.has(u[C.field])).length;
-  const pool = ws.filter(u => o.filter === 'all' || !ids.has(u[C.field]));
-  const node = it => {
-    const cap = C.cap(it), mem = ws.filter(u => u[C.field] === it.id);
-    const full = cap && mem.length >= cap, stt = !mem.length ? 'idle' : full ? 'full' : 'ok';
-    const free = Math.max(0, cap - mem.length);
-    return `<div class="gn dz st-${stt} ${mem.some(u => u.id === ME.id) ? 'mine' : ''}" data-node="${it.id}" data-kind="${kind}" ${ed ? `data-drop="${it.id}" data-act="drop"` : ''}>
-      <div class="gn-h">
-        <span class="gst">${stt === 'ok' ? ic('check') : stt === 'full' ? ic('warn') : ''}</span>
-        <span class="gn-t">${esc(it.name)}</span>
-        <span class="gn-c"><b>${mem.length}</b>/${cap || '–'}</span>
-        ${ed ? `<button type="button" class="ib sm gn-e" data-act="${C.edit}" data-id="${it.id}" aria-label="Edytuj">${ic('edit')}</button>` : ''}
-      </div>
-      <div class="gn-sub">${ic(C.pin)}<span>${esc(C.sub(it))}</span></div>
-      ${cap ? `<div class="bar ${full ? 'full' : ''}"><i style="--w:${Math.min(100, mem.length / cap * 100)}%"></i></div>` : ''}
-      <div class="gn-ppl">${mem.map(u => personChip(u, kind, { editable: ed })).join('')}${[...Array(Math.min(free, 8))].map(() => '<span class="slot">wolne miejsce</span>').join('')}${free > 8 ? `<span class="slot">+${free - 8} wolnych</span>` : ''}</div>
-      ${kind === 'house' && (carsOfHouse(it.id).length || ed) ? `<div class="gn-cars">${carsOfHouse(it.id).map(c => `<span class="carchip">${ic('car')}<b>${esc(c.name)}</b><span class="plate sm">${esc(c.plate || '—')}</span></span>`).join('')}${ed ? `<button type="button" class="carchip add" data-act="house-edit" data-id="${it.id}">${ic('plus')}${carsOfHouse(it.id).length ? 'auto' : 'przypisz auto'}</button>` : ''}</div>` : ''}
+/* Jedna mapa: domy (z autami w środku), auta bez domu i pracownicy */
+function mapHTML() {
+  const ed = can.manage(), ws = crew(), o = GOPT.map;
+  const houses = DB.houses, cars = DB.cars;
+  const hIds = new Set(houses.map(h => h.id)), cIds = new Set(cars.map(c => c.id));
+  const freeCars = cars.filter(c => !hIds.has(c.houseId));
+  const beds = houses.reduce((s, h) => s + (+h.beds || 0), 0), seats = cars.reduce((s, c) => s + (+c.seats || 0), 0);
+  const inHouse = ws.filter(u => hIds.has(u.houseId)).length, inCar = ws.filter(u => cIds.has(u.carId)).length;
+  const status = (n, cap) => !n ? 'idle' : cap && n >= cap ? 'full' : 'ok';
+  const where = u => [houseById(u.houseId)?.name || 'bez domu', carById(u.carId)?.name || 'bez auta'].join(' · ');
+  const carBlock = c => {
+    const cap = +c.seats || 0, mem = ws.filter(u => u.carId === c.id), stt = status(mem.length, cap), free = Math.max(0, cap - mem.length);
+    return `<div class="gcar dz st-${stt} ${mem.some(u => u.id === ME.id) ? 'mine' : ''}" data-kind="car" ${ed ? `data-drop="${c.id}" data-act="drop"` : ''}>
+      <div class="gcar-h">${ic('car')}<b>${esc(c.name)}</b><span class="plate sm">${esc(c.plate || '—')}</span><span class="grow"></span><span class="gn-c"><b>${mem.length}</b>/${cap || '–'}</span>${ed ? `<button type="button" class="ib sm gn-e" data-act="car-edit" data-id="${c.id}" aria-label="Edytuj auto">${ic('edit')}</button>` : ''}</div>
+      <div class="gcar-ppl">${mem.map(u => personChip(u, 'car', { editable: ed })).join('')}${free ? `<span class="slot sm">${free} ${free === 1 ? 'wolne miejsce' : 'wolne'}</span>` : ''}</div>
     </div>`;
   };
-  const mode = layoutOf(kind).mode || '';
-  return `<div class="gwrap ${o.full ? 'gfull' : ''} ${ed ? 'ed' : ''}">
-    ${ed ? `<aside class="gpanel dz" data-drop="" data-kind="${kind}" data-act="drop">
-      <div class="gp-h"><b>Pracownicy</b><span class="pill">${ws.length - used} ${kind === 'house' ? 'bez domu' : 'bez auta'}</span></div>
+  const houseNode = h => {
+    const cap = +h.beds || 0, mem = ws.filter(u => u.houseId === h.id), stt = status(mem.length, cap), free = Math.max(0, cap - mem.length), hc = carsOfHouse(h.id);
+    return `<div class="gn dz st-${stt} ${mem.some(u => u.id === ME.id) ? 'mine' : ''}" data-node="${h.id}" data-kind="house" ${ed ? `data-drop="${h.id}" data-act="drop"` : ''}>
+      <div class="gn-h">
+        <span class="gst">${stt === 'ok' ? ic('check') : stt === 'full' ? ic('warn') : ''}</span>
+        <span class="gn-t">${esc(h.name)}</span>
+        <span class="gn-c"><b>${mem.length}</b>/${cap || '–'}</span>
+        ${ed ? `<button type="button" class="ib sm gn-e" data-act="house-edit" data-id="${h.id}" aria-label="Edytuj dom">${ic('edit')}</button>` : ''}
+      </div>
+      <div class="gn-sub">${ic('pin')}<span>${esc(h.address || 'brak adresu')}</span></div>
+      ${cap ? `<div class="bar ${stt === 'full' ? 'full' : ''}"><i style="--w:${Math.min(100, mem.length / cap * 100)}%"></i></div>` : ''}
+      <div class="gn-ppl">${mem.map(u => personChip(u, 'house', { editable: ed })).join('')}${[...Array(Math.min(free, 8))].map(() => '<span class="slot">wolne łóżko</span>').join('')}${free > 8 ? `<span class="slot">+${free - 8} wolnych</span>` : ''}</div>
+      ${hc.length || ed ? `<div class="gn-cars">${hc.map(carBlock).join('')}${ed ? `<button type="button" class="carchip add" data-act="house-edit" data-id="${h.id}">${ic('plus')}${hc.length ? 'auto przy domu' : 'przypisz auto do domu'}</button>` : ''}</div>` : ''}
+    </div>`;
+  };
+  const carNode = c => {
+    const cap = +c.seats || 0, mem = ws.filter(u => u.carId === c.id), stt = status(mem.length, cap), free = Math.max(0, cap - mem.length);
+    return `<div class="gn gn-car dz st-${stt} ${mem.some(u => u.id === ME.id) ? 'mine' : ''}" data-node="${c.id}" data-kind="car" ${ed ? `data-drop="${c.id}" data-act="drop"` : ''}>
+      <div class="gn-h">
+        <span class="gst">${stt === 'ok' ? ic('check') : stt === 'full' ? ic('warn') : ''}</span>
+        <span class="gn-t">${esc(c.name)}</span>
+        <span class="gn-c"><b>${mem.length}</b>/${cap || '–'}</span>
+        ${ed ? `<button type="button" class="ib sm gn-e" data-act="car-edit" data-id="${c.id}" aria-label="Edytuj auto">${ic('edit')}</button>` : ''}
+      </div>
+      <div class="gn-sub">${ic('car')}<span>${esc(c.plate || '—')} · auto bez domu</span></div>
+      ${cap ? `<div class="bar ${stt === 'full' ? 'full' : ''}"><i style="--w:${Math.min(100, mem.length / cap * 100)}%"></i></div>` : ''}
+      <div class="gn-ppl">${mem.map(u => personChip(u, 'car', { editable: ed })).join('')}${[...Array(Math.min(free, 8))].map(() => '<span class="slot">wolne miejsce</span>').join('')}</div>
+    </div>`;
+  };
+  const pool = ws.filter(u => o.filter === 'all' || (o.filter === 'car' ? !cIds.has(u.carId) : !hIds.has(u.houseId)));
+  const mode = layoutOf('map').mode || '';
+  const tab = (f, l, n) => `<button type="button" class="${o.filter === f ? 'on' : ''}" data-act="g-filter" data-kind="map" data-f="${f}">${l}${n !== undefined ? ` <b>${n}</b>` : ''}</button>`;
+  return `<div class="gwrap uni ${o.full ? 'gfull' : ''} ${ed ? 'ed' : ''}">
+    ${ed ? `<aside class="gpanel dz" data-drop="" data-kind="any" data-act="drop">
+      <div class="gp-h"><b>Pracownicy</b><span class="pill">${ws.length} os.</span></div>
       <input class="gp-search" type="search" placeholder="Szukaj pracownika…" data-gsearch>
-      <div class="gp-tabs"><button type="button" class="${o.filter === 'free' ? 'on' : ''}" data-act="g-filter" data-kind="${kind}" data-f="free">${C.none}</button><button type="button" class="${o.filter === 'all' ? 'on' : ''}" data-act="g-filter" data-kind="${kind}" data-f="all">Wszyscy</button></div>
-      <div class="gp-list">${pool.map(u => personChip(u, kind, { editable: true, where: o.filter === 'all' ? (items.find(i => i.id === u[C.field])?.name || C.none) : '' })).join('') || `<div class="muted small gp-empty">Każdy ma przypisany ${C.unit} ✓</div>`}</div>
-      <div class="gp-hint muted small">Przeciągnij osobę na kafelek (na telefonie: przytrzymaj i przeciągnij) albo dotknij osobę, a potem kafelek. Upuść tutaj, aby wypisać.</div>
+      <div class="gp-tabs">${tab('house', 'Bez domu', ws.length - inHouse)}${tab('car', 'Bez auta', ws.length - inCar)}${tab('all', 'Wszyscy')}</div>
+      <div class="gp-list">${pool.map(u => personChip(u, 'any', { editable: true, where: o.filter === 'all' ? where(u) : '' })).join('') || `<div class="muted small gp-empty">${o.filter === 'car' ? 'Każdy ma auto ✓' : 'Każdy ma dom ✓'}</div>`}</div>
+      <div class="gp-hint muted small">Upuść osobę na <b>dom</b>, żeby tam zamieszkała, albo na <b>auto</b>, żeby nim jeździła (na telefonie: przytrzymaj i przeciągnij albo dotknij osobę, a potem dom/auto). Upuść tutaj, aby wypisać.</div>
     </aside>` : ''}
-    <div class="gcanvas" data-gkind="${kind}">
+    <div class="gcanvas" data-gkind="map">
       <div class="gworld">
         <svg class="gedges" width="1" height="1" aria-hidden="true"></svg>
-        <div class="gn hub" data-node="__hub"><div class="gn-h">${kind === 'house' && LOGO ? `<img class="hub-logo" src="${LOGO}" alt="${esc(COMPANY)}" draggable="false">` : `<span class="logo sm">${kind === 'house' ? 'S' : ic('car')}</span><span class="gn-t">${esc(C.hubT)}</span>`}</div><div class="gn-sub"><span>${C.hubS(items.length, used, totalCap)}</span></div><div class="bar"><i style="--w:${totalCap ? Math.min(100, used / totalCap * 100) : 0}%"></i></div></div>
-        ${items.map(node).join('')}
+        <div class="gn hub" data-node="__hub"><div class="gn-h">${LOGO ? `<img class="hub-logo" src="${LOGO}" alt="${esc(COMPANY)}" draggable="false">` : `<span class="logo sm">S</span><span class="gn-t">${esc(COMPANY)}</span>`}</div>
+          <div class="hub-st"><span>${ic('house')}<b>${inHouse}</b>/${beds} łóżek</span><span>${ic('car')}<b>${inCar}</b>/${seats} miejsc</span></div>
+          <div class="bar"><i style="--w:${beds ? Math.min(100, inHouse / beds * 100) : 0}%"></i></div>
+          <div class="gn-sub"><span>${houses.length} domów · ${cars.length} aut · ${ws.length} pracowników</span></div></div>
+        ${houses.map(houseNode).join('')}${freeCars.map(carNode).join('')}
       </div>
-      ${!items.length ? `<div class="g-empty">${ic(C.icon)}<p>Brak pozycji.${ed ? ` Dodaj pierwszy ${C.unit} przyciskiem u góry.` : ''}</p></div>` : ''}
-      ${ed ? `<div class="gctl-l"><select class="gsel" data-chg="g-layout" data-kind="${kind}" aria-label="Układ">${opt('', 'Układ…', !mode)}${opt('tree', 'Drzewo (GitHub)', false)}${opt('mind', 'Mapa myśli', false)}${opt('list', 'Lista pionowa', false)}</select></div>` : ''}
+      ${!houses.length && !cars.length ? `<div class="g-empty">${ic('house')}<p>Brak domów i aut.${ed ? ' Dodaj pierwszy dom przyciskiem u góry.' : ''}</p></div>` : ''}
+      ${ed ? `<div class="gctl-l"><select class="gsel" data-chg="g-layout" data-kind="map" aria-label="Układ">${opt('', 'Układ…', !mode)}${opt('tree', 'Drzewo (GitHub)', false)}${opt('mind', 'Mapa myśli', false)}${opt('list', 'Lista pionowa', false)}</select></div>` : ''}
       <div class="gctl">
         <span class="gzoom">100%</span>
-        <button type="button" class="gbtn" data-act="g-fit" data-kind="${kind}" title="Dopasuj do ekranu">${ic('target')}</button>
-        <button type="button" class="gbtn" data-act="g-full" data-kind="${kind}" title="${o.full ? 'Zamknij pełny ekran' : 'Pełny ekran'}">${ic(o.full ? 'shrink' : 'expand')}</button>
-        <div class="gseg"><button type="button" class="gbtn" data-act="g-zoom" data-kind="${kind}" data-d="-1" aria-label="Pomniejsz">${ic('minus')}</button><button type="button" class="gbtn" data-act="g-zoom" data-kind="${kind}" data-d="1" aria-label="Powiększ">${ic('plus')}</button></div>
+        <button type="button" class="gbtn" data-act="g-fit" data-kind="map" title="Dopasuj do ekranu">${ic('target')}</button>
+        <button type="button" class="gbtn" data-act="g-full" data-kind="map" title="${o.full ? 'Zamknij pełny ekran' : 'Pełny ekran'}">${ic(o.full ? 'shrink' : 'expand')}</button>
+        <div class="gseg"><button type="button" class="gbtn" data-act="g-zoom" data-kind="map" data-d="-1" aria-label="Pomniejsz">${ic('minus')}</button><button type="button" class="gbtn" data-act="g-zoom" data-kind="map" data-d="1" aria-label="Powiększ">${ic('plus')}</button></div>
       </div>
     </div>
   </div>`;
+}
+/* gdzie upuszczona osoba trafia: strefa decyduje (dom → houseId, auto → carId, lista → wypisz) */
+function dropKindOk(z, dragKind) {
+  if (!z || z.dataset.drop === undefined) return false;
+  if (z.closest('.gwrap.uni')) return z.dataset.kind !== 'any' || dragKind !== 'any';
+  return z.dataset.kind === dragKind;
+}
+function dropTo(z, dragKind, userId) {
+  if (z.closest('.gwrap.uni')) {
+    if (z.dataset.kind === 'any') { if (dragKind === 'house' || dragKind === 'car') assign(dragKind, userId, ''); return; }
+    return assign(z.dataset.kind, userId, z.dataset.drop);
+  }
+  assign(dragKind, userId, z.dataset.drop);
 }
 function graphAutoLayout(cv, mode) {
   const kind = cv.dataset.gkind, L = layoutOf(kind), P = L.pos = {};
@@ -1028,7 +1098,8 @@ function zoomAt(cv, cx, cy, f) {
 function initGraph(cv) {
   const kind = cv.dataset.gkind, L = layoutOf(kind);
   const nodes = $$('.gn', cv);
-  if (!L.pos.__hub) graphAutoLayout(cv, L.mode || (cv.clientWidth < 640 ? 'list' : 'tree'));
+  // automatyczne układy przeliczamy zawsze (kafelki rosną, gdy dochodzą ludzie / auta) – ręczny układ zostaje
+  if (!L.pos.__hub || (L.mode && L.mode !== 'custom')) graphAutoLayout(cv, L.mode || (cv.clientWidth < 640 ? 'list' : 'tree'));
   else graphPlaceMissing(cv);
   nodes.forEach(n => { const p = L.pos[n.dataset.node]; if (p) { n.style.left = p.x + 'px'; n.style.top = p.y + 'px'; } });
   drawEdges(cv);
@@ -1088,7 +1159,7 @@ function chipDragStart() {
 function chipDragMove(x, y) {
   CD.ghost.style.transform = `translate(${x - CD.ox}px,${y - CD.oy}px) rotate(-2deg) scale(1.06)`;
   const el = document.elementFromPoint(x, y); const z = el && el.closest('.dz');
-  const ok = z && z.dataset.kind === CD.kind && z.dataset.drop !== undefined ? z : null;
+  const ok = dropKindOk(z, CD.kind) ? z : null;
   if (CD.over !== ok) { CD.over?.classList.remove('over'); ok?.classList.add('over'); CD.over = ok; }
 }
 function chipDragEnd(drop) {
@@ -1097,16 +1168,17 @@ function chipDragEnd(drop) {
   d.ghost.remove(); d.chip.classList.remove('dragging'); d.over?.classList.remove('over');
   document.body.classList.remove('chipdrag'); delete document.body.dataset.dragKind;
   SUPPRESS_CLICK_UNTIL = Date.now() + 400;
-  if (drop && d.over) assign(d.kind, d.id, d.over.dataset.drop);
+  if (drop && d.over) dropTo(d.over, d.kind, d.id);
 }
 
 /* ----- DOMY ----- */
 VIEWS.houses = () => {
   const ed = can.manage();
   const ws = crew(); const beds = DB.houses.reduce((s, h) => s + (+h.beds || 0), 0); const occ = ws.filter(u => houseById(u.houseId)).length;
-  const html = `<div class="stats s3">${stat('Domy', DB.houses.length, { icon: 'house' })}${stat('Zajęte miejsca', occ, { icon: 'users', tone: 'green', i: 1 })}${stat('Wolne miejsca', Math.max(0, beds - occ), { icon: 'check', tone: 'blue', i: 2 })}</div>
-    ${graphHTML('house')}`;
-  return { title: 'Mapa domów', sub: ed ? 'Każdy dom to kafelek – przeciągaj ludzi z listy' : 'Kto gdzie mieszka', html, action: ed ? `<button type="button" class="btn primary" data-act="house-edit">${ic('plus')}<span class="hide-s"> Dom</span></button>` : '' };
+  const seats = DB.cars.reduce((s, c) => s + (+c.seats || 0), 0), inCar = ws.filter(u => carById(u.carId)).length;
+  const html = `<div class="stats">${stat('Domy', DB.houses.length, { icon: 'house' })}${stat('Wolne łóżka', Math.max(0, beds - occ), { icon: 'check', tone: 'green', i: 1 })}${stat('Auta', DB.cars.length, { icon: 'car', tone: 'blue', i: 2 })}${stat('Wolne miejsca w autach', Math.max(0, seats - inCar), { icon: 'users', tone: 'blue', i: 3 })}</div>
+    ${mapHTML()}`;
+  return { title: 'Mapa', sub: ed ? 'Domy, auta i ludzie na jednej mapie – przeciągaj ludzi na dom albo na auto' : 'Kto gdzie mieszka i czym jeździ', html, action: ed ? `<button type="button" class="btn ghost" data-act="car-edit" aria-label="Dodaj auto">${ic('car')}<span class="hide-s"> + Auto</span></button><button type="button" class="btn primary" data-act="house-edit" aria-label="Dodaj dom">${ic('house')}<span class="hide-s"> + Dom</span></button>` : '' };
 };
 
 /* ----- AUTA ----- */
@@ -1119,7 +1191,7 @@ function carStats(c) {
 VIEWS.cars = () => {
   const ed = can.manage();
   let html = '';
-  html += graphHTML('car');
+  html += `<div class="card anim maplink"><div class="row gap">${ic('house')}<div class="grow"><b>Przypisywanie ludzi do aut jest teraz na wspólnej mapie</b><div class="muted small">Domy, auta i pracownicy w jednym miejscu.</div></div><button type="button" class="btn sm primary" data-act="go" data-v="houses">Otwórz mapę</button></div></div>`;
   html += `<h2 class="sec-t">Szczegóły aut</h2><div class="cgrid">${DB.cars.map((c, i) => {
     const s = carStats(c); const users = crew().filter(u => u.carId === c.id);
     return `<div class="card car anim ${ME.carId === c.id ? 'mine' : ''}" style="--i:${i}">
@@ -1357,6 +1429,48 @@ VIEWS.user = () => {
 };
 
 /* ----- ADMIN ----- */
+/* ----- ZGŁOSZENIA (błędy → admin, zgłoszenia/informacje/skargi → kierownik) ----- */
+const RTYPE = { bug: { label: 'Błąd w aplikacji', icon: 'bug', tone: 'warn' }, info: { label: 'Informacja', icon: 'chat', tone: 'blue' }, request: { label: 'Zgłoszenie', icon: 'flag', tone: 'blue' }, complaint: { label: 'Skarga', icon: 'warn', tone: 'err' } };
+// admin widzi wszystko; kierownik nie widzi błędów aplikacji (te idą do admina)
+const visibleReports = () => !can.manage() ? [] : DB.reports.filter(r => can.admin() || r.type !== 'bug');
+const openReportsCount = () => visibleReports().filter(r => r.status === 'open').length;
+function reportFrom(r) {
+  if (!r.anon) return `${avatar(userById(r.fromId))}<b>${esc(nameOf(r.fromId))}</b>`;
+  // kierownik widzi tylko „Anonimowo”, admin widzi kto wysłał
+  return `<span class="av anon">?</span><b>Anonimowo</b>${can.admin() ? `<span class="pill anon-who" title="Widoczne tylko dla admina">${ic('eye')} ${esc(nameOf(r.fromId))}</span>` : ''}`;
+}
+function reportCard(r, i, mine = false) {
+  const T = RTYPE[r.type] || RTYPE.info;
+  return `<div class="card rep anim st-${r.status}" style="--i:${i}">
+    <div class="rep-h"><span class="pill ${T.tone}">${ic(T.icon)} ${T.label}</span>${r.status === 'done' ? `<span class="pill ok">${ic('check')} Załatwione</span>` : '<span class="pill">Otwarte</span>'}<span class="grow"></span><span class="muted small">${fmtTs(r.createdAt)}</span></div>
+    ${mine ? (r.anon ? `<div class="muted small">${ic('shield')} Wysłane anonimowo – kierownik nie widzi, że to Ty</div>` : '') : `<div class="rep-from">${reportFrom(r)}</div>`}
+    ${r.title ? `<h3 class="rep-t">${esc(r.title)}</h3>` : ''}
+    <div class="rep-txt">${esc(r.text)}</div>
+    ${(r.fileIds || []).length ? `<div class="thumbs">${r.fileIds.map(f => `<button type="button" class="thumb" data-thumb="${f}" data-act="view-file" data-id="${f}"></button>`).join('')}</div>` : ''}
+    ${r.reply ? `<div class="rep-reply"><div class="muted small">Odpowiedź · ${esc(r.anon && !can.admin() && mine ? nameOf(r.reply.byId) : nameOf(r.reply.byId))} · ${fmtTs(r.reply.at)}</div>${esc(r.reply.text)}</div>` : ''}
+    ${!mine ? `<div class="row gap wrap"><button type="button" class="btn sm ghost" data-act="report-reply" data-id="${r.id}">${ic('send')} ${r.reply ? 'Zmień odpowiedź' : 'Odpowiedz'}</button>${r.status === 'open' ? `<button type="button" class="btn sm primary" data-act="report-status" data-id="${r.id}" data-s="done">${ic('check')} Załatwione</button>` : `<button type="button" class="btn sm ghost" data-act="report-status" data-id="${r.id}" data-s="open">Otwórz ponownie</button>`}</div>` : ''}
+  </div>`;
+}
+VIEWS.reports = () => {
+  const all = visibleReports().sort((a, b) => b.createdAt - a.createdAt);
+  const tab = ST.repTab || 'open', type = ST.repType || '';
+  const list = all.filter(r => r.status === tab && (!type || r.type === type));
+  const types = Object.keys(RTYPE).filter(k => can.admin() || k !== 'bug');
+  let html = `<div class="tabs"><button type="button" class="${tab === 'open' ? 'on' : ''}" data-act="rep-tab" data-k="open">Otwarte <b>${all.filter(r => r.status === 'open').length}</b></button><button type="button" class="${tab === 'done' ? 'on' : ''}" data-act="rep-tab" data-k="done">Załatwione</button><span class="grow"></span>
+    <select class="mini" data-chg="rep-type">${opt('', 'Wszystkie rodzaje', !type)}${types.map(k => opt(k, RTYPE[k].label, k === type)).join('')}</select></div>`;
+  html += list.length ? `<div class="reps">${list.map((r, i) => reportCard(r, i)).join('')}</div>` : empty(tab === 'open' ? 'Brak otwartych zgłoszeń' : 'Brak załatwionych zgłoszeń', 'flag');
+  return { title: 'Zgłoszenia', sub: can.admin() ? 'Błędy aplikacji, zgłoszenia, informacje i skargi – jako admin widzisz też autorów anonimowych' : 'Zgłoszenia, informacje i skargi od pracowników', html };
+};
+function shotsField() {
+  return `<label>Zrzuty ekranu (maks. 3, opcjonalnie)<input type="file" name="shots" multiple accept="image/*" data-chg="shots"></label><div class="shots-prev muted small">Nie wybrano zdjęć</div>`;
+}
+async function saveShots(fd) {
+  const files = fd.getAll('shots').filter(f => f && f.size);
+  if (files.length > 3) throw new Error('Możesz dodać maksymalnie 3 zrzuty ekranu');
+  if (files.some(f => !f.type.startsWith('image/'))) throw new Error('Dozwolone są tylko zdjęcia / zrzuty ekranu');
+  const ids = []; for (const f of files) ids.push(await storeFile(f)); return ids;
+}
+
 VIEWS.admin = () => {
   const now = Date.now(); const us = [...DB.users].sort((a, b) => (b.lastSeen || 0) - (a.lastSeen || 0));
   const online = us.filter(u => u.lastSeen && now - u.lastSeen < 5 * 60000).length;
@@ -1387,11 +1501,81 @@ const ACT = {
   'menu': () => openMenu(),
   'close-menu': () => closeMenu(),
   'profile': () => {
-    modal('Moje konto', `<div class="row gap">${avatar(ME, 1)}<div><b>${esc(ME.name)}</b><div class="muted small">${ROLES[ME.role].label} · @${esc(ME.login)}</div></div></div>
-      ${ME.id === REAL.id && !PREVIEW ? `<label>Nowe hasło<input name="pass" type="password" minlength="4" autocomplete="new-password"></label>` : '<p class="muted small">W trybie podglądu zmiana hasła jest wyłączona.</p>'}
-      <div class="row gap wrap"><button type="button" class="btn ghost" data-act="go-user" data-id="${ME.id}">Mój profil</button><button type="button" class="btn ghost" data-act="install-help">${ic('dl')} Dodaj do ekranu</button>${ME.id === REAL.id && !PREVIEW ? `<button type="button" class="btn ghost" data-act="new-recovery">${ic('key')} Nowy kod odzyskiwania</button>` : ''}${!PREVIEW ? `<button type="button" class="btn danger" data-act="logout">${ic('logout')} Wyloguj</button>` : ''}</div>`,
-      ME.id === REAL.id && !PREVIEW ? { onSubmit: async fd => { const p = String(fd.get('pass') || ''); if (!p) return; if (p.length < 4) throw new Error('Min. 4 znaki'); REAL.pass = await sha(p); log('Zmieniono hasło'); save(); toast('Hasło zmienione'); }, submitLabel: 'Zmień hasło' } : {});
+    const mine = DB.reports.filter(r => r.fromId === ME.id), canPass = ME.id === REAL.id && !PREVIEW;
+    const tile = (act, icon, t, d, badge) => `<button type="button" class="acc-t" data-act="${act}"><span class="acc-ic">${ic(icon)}</span><span class="grow"><b>${t}</b><span class="muted small">${d}</span></span>${badge ? `<b class="badge">${badge}</b>` : ''}</button>`;
+    modal('Moje konto', `<div class="row gap">${avatar(ME, 1)}<div><b>${esc(ME.name)}</b><div class="muted small">${ROLES[ME.role].label} · @${esc(ME.login)}${ME.email ? ' · ' + esc(ME.email) : ''}</div></div></div>
+      <div class="acc-grid">
+        ${tile('acc-pass', 'lock', 'Zmień hasło', canPass ? 'Podaj obecne i nowe hasło' : 'Wyłączone w trybie podglądu')}
+        ${tile('acc-email', 'mail', 'Zmień e-mail', ME.email ? esc(ME.email) : 'Nie podano adresu')}
+        ${tile('acc-boss', 'flag', 'Napisz do kierownika', 'Zgłoszenie, informacja albo skarga – także anonimowo')}
+        ${tile('acc-bug', 'bug', 'Zgłoś błąd w aplikacji', 'Opis + maks. 3 zrzuty ekranu')}
+        ${tile('acc-mine', 'file', 'Moje zgłoszenia', mine.length ? `${mine.length} wysłanych` : 'Jeszcze nic nie wysłano', mine.filter(r => r.reply && !r.replySeen).length)}
+      </div>
+      <div class="row gap wrap"><button type="button" class="btn ghost" data-act="go-user" data-id="${ME.id}">Mój profil</button><button type="button" class="btn ghost" data-act="install-help">${ic('dl')} Dodaj do ekranu</button>${canPass ? `<button type="button" class="btn ghost" data-act="new-recovery">${ic('key')} Nowy kod odzyskiwania</button>` : ''}${!PREVIEW ? `<button type="button" class="btn danger" data-act="logout">${ic('logout')} Wyloguj</button>` : ''}</div>`);
   },
+  'acc-pass': () => {
+    if (!(ME.id === REAL.id && !PREVIEW)) return toast(PREVIEW ? 'W trybie podglądu zmiana hasła jest wyłączona' : 'Hasło zmienisz tylko na swoim koncie', 'info');
+    modal('Zmień hasło', `<label>Obecne hasło<input name="old" type="password" required autocomplete="current-password"></label><label>Nowe hasło<input name="pass" type="password" minlength="4" required autocomplete="new-password"></label><label>Powtórz nowe hasło<input name="pass2" type="password" minlength="4" required autocomplete="new-password"></label>`, {
+      submitLabel: 'Zmień hasło', onSubmit: async fd => {
+        if (await sha(String(fd.get('old'))) !== REAL.pass) throw new Error('Obecne hasło jest nieprawidłowe');
+        const p = String(fd.get('pass')); if (p.length < 4) throw new Error('Nowe hasło: min. 4 znaki');
+        if (p !== String(fd.get('pass2'))) throw new Error('Nowe hasła nie są takie same');
+        REAL.pass = await sha(p); log('Zmieniono hasło'); save(); toast('Hasło zmienione');
+      },
+    });
+  },
+  'acc-email': () => {
+    modal('Zmień e-mail', `<label>Adres e-mail<input name="email" type="email" required value="${esc(ME.email || '')}" placeholder="np. jan@gmail.com" autocomplete="email"></label>${ME.id === REAL.id && !PREVIEW ? '<label>Hasło (dla potwierdzenia)<input name="pass" type="password" required autocomplete="current-password"></label>' : ''}`, {
+      submitLabel: 'Zapisz e-mail', onSubmit: async fd => {
+        const em = String(fd.get('email')).trim(); if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em)) throw new Error('Nieprawidłowy adres e-mail');
+        if (ME.id === REAL.id && !PREVIEW && await sha(String(fd.get('pass'))) !== REAL.pass) throw new Error('Nieprawidłowe hasło');
+        if (DB.users.some(u => u.id !== ME.id && (u.email || '').toLowerCase() === em.toLowerCase())) throw new Error('Ten e-mail ma już inne konto');
+        ME.email = em; log('Zmieniono e-mail'); save(); render(); toast('E-mail zapisany');
+      },
+    });
+  },
+  'acc-boss': () => {
+    modal('Napisz do kierownika', `<div class="seg3" role="radiogroup">${['request', 'info', 'complaint'].map((k, i) => `<label class="rchip"><input type="radio" name="type" value="${k}" ${i === 0 ? 'checked' : ''}>${ic(RTYPE[k].icon)}<span>${RTYPE[k].label}</span></label>`).join('')}</div>
+      <label>Temat<input name="title" maxlength="80" required placeholder="Krótko, czego dotyczy"></label>
+      <label>Treść<textarea name="text" rows="5" required placeholder="Opisz sprawę…"></textarea></label>
+      <label class="anon-box"><input type="checkbox" name="anon"><span><b>Wyślij anonimowo</b><span class="muted small">Kierownik zobaczy tylko „Anonimowo”. Twoje imię widzi wyłącznie admin.</span></span></label>
+      ${shotsField()}`, {
+      submitLabel: 'Wyślij', onSubmit: async fd => {
+        const text = String(fd.get('text')).trim(); if (!text) throw new Error('Wpisz treść');
+        const anon = fd.get('anon') === 'on', type = fd.get('type') || 'request';
+        const fileIds = await saveShots(fd);
+        DB.reports.push({ id: uid(), type, title: String(fd.get('title')).trim(), text, fromId: ME.id, anon, fileIds, status: 'open', createdAt: Date.now() });
+        log(`Wysłano do kierownika: ${RTYPE[type].label}${anon ? ' (anonimowo)' : ''}`); save(); render(); toast(anon ? 'Wysłano anonimowo' : 'Wysłano do kierownika');
+      },
+    });
+  },
+  'acc-bug': () => {
+    modal('Zgłoś błąd w aplikacji', `<p class="muted small">Zgłoszenie trafi do admina. Opisz, co robiłeś i co poszło nie tak.</p>
+      <label>Gdzie wystąpił błąd<input name="title" maxlength="80" required placeholder="np. Godziny pracy – zapis dnia"></label>
+      <label>Opis błędu<textarea name="text" rows="5" required placeholder="Co kliknąłeś, co się stało, co powinno się stać…"></textarea></label>
+      ${shotsField()}`, {
+      submitLabel: 'Wyślij zgłoszenie', onSubmit: async fd => {
+        const text = String(fd.get('text')).trim(); if (!text) throw new Error('Opisz błąd');
+        const fileIds = await saveShots(fd);
+        DB.reports.push({ id: uid(), type: 'bug', title: String(fd.get('title')).trim(), text, fromId: ME.id, anon: false, fileIds, status: 'open', createdAt: Date.now(), ua: navigator.userAgent.slice(0, 160), ver: VERSION });
+        log('Zgłoszono błąd: ' + String(fd.get('title')).trim()); save(); render(); toast('Dziękujemy – błąd zgłoszony');
+      },
+    });
+  },
+  'acc-mine': () => {
+    const mine = DB.reports.filter(r => r.fromId === ME.id).sort((a, b) => b.createdAt - a.createdAt);
+    mine.forEach(r => { if (r.reply) r.replySeen = true; }); save();
+    modal('Moje zgłoszenia', mine.length ? `<div class="reps">${mine.map((r, i) => reportCard(r, i, true)).join('')}</div>` : empty('Nic jeszcze nie wysłałeś', 'flag'), { wide: true });
+    hydrateThumbs(); render();
+  },
+  'report-status': el => { const r = DB.reports.find(x => x.id === el.dataset.id); if (!r) return; r.status = el.dataset.s; r.doneBy = ME.id; r.doneAt = Date.now(); log(`Zgłoszenie „${r.title || RTYPE[r.type].label}” → ${r.status === 'done' ? 'załatwione' : 'otwarte'}`); save(); render(); toast(r.status === 'done' ? 'Oznaczono jako załatwione' : 'Otwarto ponownie'); },
+  'report-reply': el => {
+    const r = DB.reports.find(x => x.id === el.dataset.id); if (!r) return;
+    modal('Odpowiedź', `<p class="muted small">Odpowiedź zobaczy autor w „Moje konto → Moje zgłoszenia”${r.anon ? ' (także przy zgłoszeniu anonimowym – bez ujawniania autora)' : ''}.</p><label>Treść<textarea name="text" rows="4" required>${esc(r.reply?.text || '')}</textarea></label>`, {
+      submitLabel: 'Wyślij odpowiedź', onSubmit: fd => { r.reply = { text: String(fd.get('text')).trim(), byId: ME.id, at: Date.now() }; r.replySeen = false; log('Odpowiedziano na zgłoszenie'); save(); render(); toast('Odpowiedź zapisana'); },
+    });
+  },
+  'rep-tab': el => { ST.repTab = el.dataset.k; render(); },
   'logout': () => { closeModal(); logout(); },
   'auth-tab': el => { AUTH_TAB = el.dataset.k; renderAuth(); },
   'install-help': () => { closeMenu(); installHelp(); },
@@ -1422,9 +1606,9 @@ const ACT = {
   'pick': el => {
     const id = el.dataset.drag, kind = el.dataset.kind;
     SELECTED = SELECTED?.id === id && SELECTED.kind === kind ? null : { id, kind };
-    render(); if (SELECTED) toast('Teraz dotknij ' + { house: 'dom', car: 'auto', group: 'rotację' }[kind] + ' (albo „' + { house: 'Bez domu', car: 'Bez auta', group: 'Bez rotacji' }[kind] + '”)', 'info');
+    render(); if (SELECTED) toast(el.closest('.gwrap.uni') ? (kind === 'any' ? 'Teraz dotknij dom albo auto' : 'Teraz dotknij dom albo auto (albo listę, aby wypisać)') : 'Teraz dotknij ' + { house: 'dom', car: 'auto', group: 'rotację' }[kind] + ' (albo „' + { house: 'Bez domu', car: 'Bez auta', group: 'Bez rotacji' }[kind] + '”)', 'info');
   },
-  'drop': el => { if (SELECTED && SELECTED.kind === el.dataset.kind) assign(SELECTED.kind, SELECTED.id, el.dataset.drop); },
+  'drop': el => { if (SELECTED && dropKindOk(el, SELECTED.kind)) dropTo(el, SELECTED.kind, SELECTED.id); },
   'g-filter': el => { GOPT[el.dataset.kind].filter = el.dataset.f; render(); },
   'g-fit': el => { const cv = el.closest('.gcanvas'); fitGraph(cv); },
   'g-zoom': el => { const cv = el.closest('.gcanvas'); zoomAt(cv, cv.clientWidth / 2, cv.clientHeight / 2, el.dataset.d === '1' ? 1.2 : 1 / 1.2); },
@@ -1465,6 +1649,8 @@ const ACT = {
       danger: g.id ? { act: 'group-del', id: g.id } : null,
     });
   },
+  'group-shift': el => { const g = groupById(el.dataset.id); if (!g) return; const d = +el.dataset.d; g.start = addDays(g.start, d); log(`Rotacja ${g.name}: cykl przesunięty o ${d > 0 ? '+' : ''}${d / 7} tydz.`); save(); render(); toast(`${g.name}: przesunięto o ${d > 0 ? '+1' : '−1'} tydzień`); },
+  'group-msg': el => msgModal('group', el.dataset.id),
   'preset': el => { $('#mform [name=weeksIn]').value = el.dataset.a; $('#mform [name=weeksOut]').value = el.dataset.b; },
   'group-del': el => { const g = groupById(el.dataset.id); DB.users.forEach(u => { if (u.groupId === g.id) u.groupId = ''; }); DB.groups = DB.groups.filter(x => x.id !== g.id); log('Usunięto rotację ' + g.name); save(); closeModal(); render(); },
 
@@ -1551,7 +1737,7 @@ const ACT = {
   'ticket-edit': el => {
     const t = DB.tickets.find(x => x.id === el.dataset.id) || {};
     modal(t.id ? 'Edytuj bilety' : 'Wyślij bilety do grupy', `
-      <div class="g2"><label>Grupa rotacyjna<select name="groupId">${DB.groups.map(g => opt(g.id, `${g.name} (${crew().filter(u => u.groupId === g.id).length} os.)`, g.id === t.groupId)).join('')}<option value="" ${t.id && !t.groupId ? 'selected' : ''}>— tylko wybrane osoby —</option></select></label>
+      <div class="g2"><label>Grupa rotacyjna<select name="groupId">${DB.groups.map(g => opt(g.id, `${g.name} (${crew().filter(u => u.groupId === g.id).length} os.)`, g.id === (t.groupId || el.dataset.group))).join('')}<option value="" ${t.id && !t.groupId ? 'selected' : ''}>— tylko wybrane osoby —</option></select></label>
       <label>Kierunek<select name="direction">${opt('PL', 'Wyjazd do Polski', t.direction !== 'NO')}${opt('NO', 'Przyjazd do Norwegii', t.direction === 'NO')}</select></label></div>
       <label>Dodatkowe osoby (opcjonalnie)<select name="userIds" multiple size="4">${crew().map(u => opt(u.id, u.name, (t.userIds || []).includes(u.id))).join('')}</select></label>
       <div class="g3 tight"><label>Data lotu<input type="date" name="date" value="${t.date || ''}" required></label><label>Wylot<input type="time" name="depTime" value="${t.depTime || ''}" required></label><label>Przylot<input type="time" name="arrTime" value="${t.arrTime || ''}"></label></div>
@@ -1634,14 +1820,21 @@ function addHours(d) {
 function msgModal(type = 'user', toId = '') {
   const isF = can.foreman();
   modal('Nowa wiadomość', `${isF ? `<label>Do<select name="toType" data-chg="msg-type">${opt('user', 'Osoba', type === 'user')}${opt('group', 'Rotacja / grupa', type === 'group')}${opt('all', 'Wszyscy', type === 'all')}</select></label>` : '<input type="hidden" name="toType" value="user">'}
-    <label class="mt-user">Osoba<select name="toUser">${userOpts(toId, u => u.id !== ME.id && (isF || ROLES[u.role].rank >= 2))}</select></label>
-    <label class="mt-group" hidden>Grupa<select name="toGroup">${DB.groups.map(g => opt(g.id, `${g.name} (${crew().filter(u => u.groupId === g.id).length} os.)`)).join('')}</select></label>
+    <label class="mt-user" ${type !== 'user' ? 'hidden' : ''}>Osoba<select name="toUser">${userOpts(type === 'user' ? toId : '', u => u.id !== ME.id && (isF || ROLES[u.role].rank >= 2))}</select></label>
+    <label class="mt-group" ${type !== 'group' ? 'hidden' : ''}>Grupa<select name="toGroup">${DB.groups.map(g => opt(g.id, `${g.name} (${crew().filter(u => u.groupId === g.id).length} os.)`, type === 'group' && g.id === toId)).join('')}</select></label>
     <label>Treść<textarea name="text" rows="4" required></textarea></label>`, {
     submitLabel: 'Wyślij',
     onSubmit: fd => { const tt = fd.get('toType'); const to = tt === 'user' ? fd.get('toUser') : tt === 'group' ? fd.get('toGroup') : ''; if (tt !== 'all' && !to) throw new Error('Wybierz odbiorcę'); DB.messages.push({ id: uid(), fromId: ME.id, toType: tt, toId: to, text: String(fd.get('text')).trim(), createdAt: Date.now(), readBy: [] }); log(`Wiadomość → ${tt === 'all' ? 'wszyscy' : tt === 'group' ? groupById(to)?.name : nameOf(to)}`); save(); render(); toast('Wysłano'); },
   });
 }
 const CHG = {
+  'rep-type': el => { ST.repType = el.value; render(); },
+  'shots': el => {
+    const box = el.closest('label').nextElementSibling; const fs = [...el.files];
+    if (fs.length > 3) { el.value = ''; box.textContent = 'Nie wybrano zdjęć'; return toast('Maksymalnie 3 zrzuty ekranu – wybierz jeszcze raz', 'err'); }
+    if (fs.some(f => !f.type.startsWith('image/'))) { el.value = ''; box.textContent = 'Nie wybrano zdjęć'; return toast('Tylko zdjęcia / zrzuty ekranu', 'err'); }
+    box.innerHTML = fs.length ? fs.map(f => `<span class="shot" style="background-image:url(${URL.createObjectURL(f)})"></span>`).join('') + `<span>${fs.length}/3</span>` : 'Nie wybrano zdjęć';
+  },
   'month': el => { ST.month = el.value || monthNow(); render(); },
   'rota-weeks': el => { ST.rotaWeeks = +el.value; render(); },
   'doc-user': el => { ST.docUser = el.value; render(); },

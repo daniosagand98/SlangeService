@@ -18,9 +18,22 @@ Aplikacja do zarządzania ekipą w Norwegii: domy, auta, karty paliwowe, godziny
 - **Foreman** – projekty, poprawianie godzin pracowników, wiadomości.
 - **Pracownik** – swoje godziny, grafik, bilety, dokumenty, potwierdzanie karty paliwowej.
 
-## Mapa domów / aut
+## Mapa (domy + auta + ludzie)
 
-Każdy dom (auto) to kafelek połączony z centrum, jak joby w GitHub Actions. Kierownik przeciąga ludzi z listy na kafelek (na telefonie: przytrzymaj i przeciągnij albo dotknij osobę, potem dom). Kafelki można przesuwać, mapę przybliżać przyciskami +/− (zoom dwoma palcami jest wyłączony), dopasować i otworzyć na pełnym ekranie. Układy: Drzewo (GitHub), Mapa myśli, Lista pionowa.
+Jedna wspólna mapa: każdy dom to kafelek połączony z centrum (jak joby w GitHub Actions), a w środku domu są auta, które przy nim stoją. Auta bez domu mają własne kafelki. Kierownik przeciąga ludzi z listy: upuszczenie na **dom** = tam mieszka, na **auto** = tym autem jeździ, na listę = wypisanie (na telefonie: przytrzymaj i przeciągnij albo dotknij osobę, potem dom/auto). Lista ma zakładki „Bez domu”, „Bez auta”, „Wszyscy”. Kafelki można przesuwać, mapę przybliżać przyciskami +/−, dopasować i otworzyć na pełnym ekranie. Układy: Drzewo (GitHub), Mapa myśli, Lista pionowa.
+
+## Sterowanie rotacjami
+
+Menu → **Sterowanie rotacjami** (kierownik/admin; skróty także na Pulpicie i w „Grafik i rotacje”). Każda rotacja to karta: status NO/PL, następna zmiana, ludzie, przyciski Edytuj, **−1 / +1 tydzień** (przesuwa cały cykl), Bilety dla grupy, Wiadomość do grupy. Pod spodem przypisywanie ludzi do rotacji i plan „kto gdzie”.
+
+## Moje konto i zgłoszenia
+
+Kliknij swoje imię/avatar → **Moje konto**: zmiana hasła (z obecnym hasłem), zmiana e-maila, **Zgłoś błąd w aplikacji** (opis + maks. 3 zrzuty ekranu, trafia do admina), **Napisz do kierownika** (zgłoszenie / informacja / skarga, opcjonalnie **anonimowo**), **Moje zgłoszenia** (status i odpowiedź).
+Menu → **Zgłoszenia**: kierownik widzi zgłoszenia, informacje i skargi (anonimowe jako „Anonimowo”), admin widzi wszystko, także błędy aplikacji i to, kto wysłał anonimową skargę.
+
+## Stopka
+
+Na dole każdej strony: „Created and designed by DWSystem” (link), wersja aplikacji i data/godzina aktualizacji – `node build.js` wpisuje ją automatycznie przy każdym budowaniu.
 
 ## Logowanie i konta
 

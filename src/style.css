@@ -619,3 +619,83 @@ button.tag{cursor:pointer}
   .ov{align-items:flex-end;padding:0}
 }
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+
+/* ---------- wspólna mapa: domy + auta + ludzie ---------- */
+.gwrap.uni .gn-cars{flex-direction:column;align-items:stretch;gap:8px}
+.gwrap.uni .gn-cars .carchip.add{align-self:flex-start}
+.gcar{border:1px solid var(--gh-line);border-radius:10px;background:#0d1117;padding:8px 9px;display:flex;flex-direction:column;gap:7px;transition:border-color .2s,background .2s,transform .2s var(--ease)}
+.gcar.st-ok{border-color:#2e5f3d}
+.gcar.st-full{border-color:#6b4a17}
+.gcar.mine{border-color:rgba(228,55,70,.7)}
+.gcar-h{display:flex;align-items:center;gap:7px;min-width:0;font-size:13px}
+.gcar-h>.i{width:15px;height:15px;color:#58a6ff;flex:none}
+.gcar-h b{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:600}
+.gcar-h .gn-c{font-size:12.5px}
+.gcar-h .gn-c b{font-size:14px}
+.gcar:hover .gn-e{opacity:1}
+.gcar-ppl{display:flex;flex-wrap:wrap;gap:5px}
+.gcar-ppl .chip{background:#161b22;border-color:var(--gh-line);font-size:12px;touch-action:none;padding-block:2px}
+.slot.sm{height:26px;padding:0 9px;font-size:11px}
+.gn-car .gn-sub{color:#8b949e}
+.hub-st{display:flex;gap:12px;font-size:12.5px;color:#8b949e}
+.hub-st span{display:inline-flex;align-items:center;gap:5px}
+.hub-st .i{width:14px;height:14px;color:#58a6ff}
+.hub-st b{color:var(--text);font-size:14px}
+.gp-tabs b{font-weight:700;color:var(--text);opacity:.7}
+.maplink{margin-bottom:16px}
+.maplink .row>.i{width:22px;height:22px;color:var(--accent);flex:none}
+.gcar-h .plate.sm{white-space:nowrap;flex:none}
+.gwrap.uni .gp-tabs button{white-space:nowrap;padding:6px 4px;font-size:12px}
+
+/* ---------- stopka ---------- */
+.foot{display:flex;flex-direction:column;gap:4px;align-items:center}
+.foot-by{font-size:12.5px;color:var(--text);opacity:.85}
+.foot-by a{color:var(--accent);font-weight:700;text-decoration:none}
+.foot-by a:hover{text-decoration:underline}
+.foot-ver{font-variant-numeric:tabular-nums}
+.foot-note{opacity:.7}
+
+/* ---------- Moje konto ---------- */
+.acc-grid{display:flex;flex-direction:column;gap:8px;margin:14px 0}
+.acc-t{display:flex;align-items:center;gap:12px;text-align:left;padding:11px 12px;border-radius:12px;border:1px solid var(--line);background:rgba(0,0,0,.22);color:var(--text);cursor:pointer;font:inherit;position:relative;transition:border-color .2s,background .2s}
+.acc-t:hover{border-color:rgba(228,55,70,.55);background:rgba(228,55,70,.06)}
+.acc-t .grow{display:flex;flex-direction:column;gap:2px;min-width:0}
+.acc-ic{width:36px;height:36px;border-radius:10px;display:grid;place-items:center;background:rgba(228,55,70,.12);color:var(--accent);flex:none}
+.acc-ic .i{width:18px;height:18px}
+.acc-t .badge{position:static}
+.seg3{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:12px}
+.rchip{display:flex!important;flex-direction:column;align-items:center;gap:5px;padding:10px 6px!important;border-radius:12px;border:1px solid var(--line);background:rgba(0,0,0,.22);cursor:pointer;font-size:12.5px;font-weight:600;text-align:center}
+.rchip input{position:absolute;opacity:0;pointer-events:none}
+.rchip .i{width:18px;height:18px;color:var(--muted)}
+.rchip:has(input:checked){border-color:var(--accent);background:rgba(228,55,70,.1)}
+.rchip:has(input:checked) .i{color:var(--accent)}
+.anon-box{display:flex!important;flex-direction:row!important;align-items:flex-start;gap:10px;padding:11px 12px;border-radius:12px;border:1px solid var(--line);background:rgba(0,0,0,.22);cursor:pointer}
+.anon-box input{width:18px;height:18px;margin-top:2px;flex:none;accent-color:var(--accent)}
+.anon-box>span{display:flex;flex-direction:column;gap:2px}
+.anon-box:has(input:checked){border-color:rgba(228,55,70,.6);background:rgba(228,55,70,.08)}
+.shots-prev{display:flex;align-items:center;gap:6px;margin:-4px 0 10px;flex-wrap:wrap}
+.shot{width:54px;height:54px;border-radius:9px;background:#111 center/cover;border:1px solid var(--line)}
+
+/* ---------- zgłoszenia ---------- */
+.reps{display:flex;flex-direction:column;gap:12px}
+.rep{display:flex;flex-direction:column;gap:10px}
+.rep.st-done{opacity:.78}
+.rep-h{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.rep-h .pill .i,.anon-who .i{width:13px;height:13px;vertical-align:-2px}
+.rep-from{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.av.anon{display:inline-grid;place-items:center;width:30px;height:30px;border-radius:50%;background:#2a3140;color:#9aa4b2;font-weight:800}
+.anon-who{background:rgba(255,176,32,.12);color:var(--warn);border-color:rgba(255,176,32,.35)}
+.rep-t{margin:0;font-size:16px}
+.rep-txt{white-space:pre-wrap;line-height:1.45}
+.rep-reply{border-left:3px solid var(--accent);padding:8px 12px;border-radius:0 10px 10px 0;background:rgba(228,55,70,.06);white-space:pre-wrap}
+.pill.err{background:rgba(228,55,70,.14);color:#ff8a94;border-color:rgba(228,55,70,.4)}
+.pill.ok{background:rgba(46,160,67,.14);color:#56d364;border-color:rgba(46,160,67,.4)}
+
+/* ---------- sterowanie rotacjami ---------- */
+.rotc{border-top:3px solid var(--gc)}
+.rotc-t{display:flex;align-items:center;gap:8px}
+.rotc-t h3{margin:0}
+.rotc .hbar i{background:var(--gc)}
+.gseg.sm{display:inline-flex;gap:4px}
+.rotc .card-h,.rotc .kv,.rotc .tags,.rotc .hbar{margin-bottom:10px}
+.pill.blue{background:rgba(88,166,255,.12);border-color:rgba(88,166,255,.38);color:#79b8ff}
