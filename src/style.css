@@ -200,10 +200,10 @@ button.tag{cursor:pointer}
 .hform input[type=date],.hform input[type=time]{font-size:14.5px;padding:7px 9px}
 .hform .g3{grid-template-columns:1.45fr 1fr 1fr;gap:8px}
 .hform .g2{grid-template-columns:1fr 1.25fr;gap:8px;align-items:end}
-.totalbox{display:flex;flex-direction:column;justify-content:center;height:40px;padding:0 10px;border-radius:10px;background:rgba(228,55,70,.08);border:1px dashed rgba(228,55,70,.35);line-height:1.15}
-.totalbox>.muted{display:none}
-.htot{font-size:16px;font-weight:800;color:var(--accent2)}
-.hrest{font-size:11px!important}
+.totalbox{display:flex;align-items:baseline;flex-wrap:wrap;gap:2px 8px;min-height:42px;padding:9px 12px;border-radius:10px;background:rgba(228,55,70,.08);border:1px dashed rgba(228,55,70,.35);line-height:1.2}
+.htot{font-size:18px;font-weight:800;color:var(--accent2)}
+.hbrk{font-size:12px}
+.hrest{font-size:12px!important;flex-basis:100%}
 .hrest.bad{color:#ff8a98}.hrest.good{color:#6ff0b5}
 .splits-h{display:flex;align-items:center;justify-content:space-between;font-size:12.5px;color:var(--muted);font-weight:600;margin-top:2px}
 .splits{display:flex;flex-direction:column;gap:7px}

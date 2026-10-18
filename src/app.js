@@ -6,7 +6,7 @@
    ========================================================= */
 'use strict';
 
-const VERSION = '1.1.1';
+const VERSION = '1.1.2';
 const BUILD = '2026-10-18';
 const COMPANY = 'Slangeservice AS';
 const PREVIEW = !!window.CC_PREVIEW;
@@ -101,7 +101,10 @@ function durH(from, to, brk = 0) {
 const round2 = n => Math.round(n * 100) / 100;
 const fmtH = h => String(round2(h)).replace('.', ',') + ' h';
 const fmtNum = n => String(round2(n)).replace('.', ',');
-const entryH = x => durH(x.from, x.to, x.breakMin);
+// Przerwa liczona automatycznie: co najmniej 10 h od rozpoczęcia do zakończenia → 1 h, krócej → 0,5 h
+const autoBreak = (from, to) => { const gross = durH(from, to, 0); return gross <= 0 ? 0 : gross >= 10 ? 60 : 30; };
+const netH = (from, to) => durH(from, to, autoBreak(from, to));
+const entryH = x => netH(x.from, x.to);
 const sumH = list => list.reduce((s, x) => s + entryH(x), 0);
 function hashColor(s) { let h = 0; for (const c of String(s)) h = (h * 31 + c.charCodeAt(0)) >>> 0; return `hsl(${h % 360} 70% 58%)`; }
 function initials(n) { return String(n || '?').split(/\s+/).filter(Boolean).slice(0, 2).map(x => x[0].toUpperCase()).join(''); }
@@ -241,7 +244,7 @@ function seed() {
     workers.forEach((u, k) => {
       if ((k + d) % 4 === 0) return;
       const p1 = projects[k % 3].id, p2 = projects[(k + 1) % 3].id;
-      DB.hours.push({ id: uid(), userId: u.id, date: ds, from: '07:00', to: wd === 6 ? '12:00' : '17:00', breakMin: wd === 6 ? 0 : 30, splits: wd === 6 ? [{ projectId: p1, hours: 5 }] : [{ projectId: p1, hours: 6 }, { projectId: p2, hours: 3.5 }], note: '', createdAt: Date.now() });
+      DB.hours.push({ id: uid(), userId: u.id, date: ds, from: '07:00', to: wd === 6 ? '12:00' : '17:00', breakMin: wd === 6 ? 30 : 60, splits: wd === 6 ? [{ projectId: p1, hours: 4.5 }] : [{ projectId: p1, hours: 6 }, { projectId: p2, hours: 3 }], note: '', createdAt: Date.now() });
     });
   }
   const card1 = { id: uid(), name: 'Circle K – karta 1', last4: '4417', holderId: users[1].id };
@@ -667,8 +670,7 @@ function hoursFormHTML(e = {}) {
     <div class="g3 tight"><label>Data<input type="date" name="date" value="${e.date || isoLocal()}" required></label>
       <label>Od<input type="time" name="from" value="${e.from || '07:00'}" required></label>
       <label>Do<input type="time" name="to" value="${e.to || '15:30'}" required></label></div>
-    <div class="g2"><label>Przerwa (min)<input type="number" name="breakMin" min="0" step="5" value="${e.breakMin ?? 30}"></label>
-      <div class="totalbox"><span class="muted small">Czas pracy</span><b class="htot">0 h</b><span class="hrest small"></span></div></div>
+    <div class="totalbox"><span class="muted small">Czas pracy</span><b class="htot">0 h</b><span class="hbrk muted small"></span><span class="hrest small"></span></div>
     <div class="splits-h"><span>Ile godzin nad którym projektem</span><button type="button" class="btn sm ghost" data-act="add-split">${ic('plus')} projekt</button></div>
     <div class="splits">${splits.map(splitRow).join('')}</div>
     <label>Notatka<input name="note" value="${esc(e.note || '')}" placeholder="opcjonalnie – co robiłeś"></label>
@@ -677,7 +679,8 @@ function hoursFormHTML(e = {}) {
 function updHoursTotal(box) {
   if (!box) return;
   const v = n => box.querySelector(`[name=${n}]`)?.value;
-  const tot = durH(v('from'), v('to'), v('breakMin'));
+  const tot = netH(v('from'), v('to')); const brk = autoBreak(v('from'), v('to'));
+  const hb = box.querySelector('.hbrk'); if (hb) hb.textContent = brk ? `(−${fmtH(brk / 60)} przerwy)` : '';
   const sp = $$('[name=sp_h]', box).reduce((s, i) => s + (parseFloat(String(i.value).replace(',', '.')) || 0), 0);
   box.querySelector('.htot').textContent = fmtH(tot);
   const r = box.querySelector('.hrest'); const rest = round2(tot - sp);
@@ -685,8 +688,8 @@ function updHoursTotal(box) {
   r.textContent = sp === 0 ? 'bez podziału na projekty' : rest < 0 ? `projekty: ${fmtH(sp)} – za dużo o ${fmtH(-rest)}` : rest > 0 ? `nieprzypisane: ${fmtH(rest)}` : 'wszystko przypisane ✓';
 }
 function readHours(fd) {
-  const date = fd.get('date'), from = fd.get('from'), to = fd.get('to'), breakMin = +fd.get('breakMin') || 0;
-  const tot = durH(from, to, breakMin);
+  const date = fd.get('date'), from = fd.get('from'), to = fd.get('to'), breakMin = autoBreak(from, to);
+  const tot = netH(from, to);
   if (!date || tot <= 0) throw new Error('Sprawdź godziny – czas pracy wychodzi 0');
   const ps = fd.getAll('sp_proj'), hs = fd.getAll('sp_h'); const rows = ps.map((p, i) => ({ projectId: p, raw: String(hs[i] ?? '').trim() })).filter(r => r.projectId);
   const filled = rows.filter(r => r.raw !== ''), blank = rows.filter(r => r.raw === '');
@@ -702,7 +705,7 @@ function entryRow(x, showUser) {
   return `<div class="entry anim">
     <div class="e-d"><b>${fmtDate(x.date).split(' ')[0]}</b><span>${x.date.slice(8)}.${x.date.slice(5, 7)}</span></div>
     <div class="grow">${showUser ? `<div><b>${esc(nameOf(x.userId))}</b></div>` : ''}
-      <div>${esc(x.from)}–${esc(x.to)} <span class="muted small">· przerwa ${x.breakMin || 0} min</span></div>
+      <div>${esc(x.from)}–${esc(x.to)} <span class="muted small">· przerwa ${fmtH(autoBreak(x.from, x.to) / 60)}</span></div>
       <div class="tags">${(x.splits || []).map(s => `<span class="tag">${esc(projById(s.projectId)?.name || '?')} · ${fmtH(s.hours)}</span>`).join('')}${x.note ? `<span class="muted small">„${esc(x.note)}”</span>` : ''}${x.editedBy && x.editedBy !== x.userId ? `<span class="tag warn">poprawione: ${esc(nameOf(x.editedBy))}</span>` : ''}</div></div>
     <div class="e-h">${fmtH(entryH(x))}</div>
     ${canEdit ? `<button type="button" class="ib" data-act="edit-hours" data-id="${x.id}" aria-label="Edytuj">${ic('edit')}</button>` : ''}
@@ -1409,7 +1412,7 @@ const ACT = {
   'export-hours': () => {
     const M = ST.month; const rows = [['Data', 'Pracownik', 'Od', 'Do', 'Przerwa min', 'Godziny', 'Projekt', 'Godziny projekt', 'Notatka']];
     DB.hours.filter(h => h.date.startsWith(M)).sort((a, b) => a.date.localeCompare(b.date)).forEach(h => {
-      const base = [h.date, nameOf(h.userId), h.from, h.to, h.breakMin || 0, fmtNum(entryH(h))];
+      const base = [h.date, nameOf(h.userId), h.from, h.to, autoBreak(h.from, h.to), fmtNum(entryH(h))];
       if (h.splits?.length) h.splits.forEach(s => rows.push([...base, projById(s.projectId)?.name || '', fmtNum(s.hours), h.note || ''])); else rows.push([...base, '', '', h.note || '']);
     });
     const csv = '﻿' + rows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(';')).join('\n');
@@ -1582,7 +1585,7 @@ function addHours(d) {
   const dup = DB.hours.find(h => h.userId === d.userId && h.date === d.date && h.from < d.to && d.from < h.to);
   if (dup) throw new Error(`Ten czas nachodzi na wpis ${dup.from}–${dup.to} z tego dnia`);
   DB.hours.push({ id: uid(), ...d, createdAt: Date.now(), editedBy: d.userId !== ME.id ? ME.id : undefined });
-  log(`Godziny ${d.userId !== ME.id ? nameOf(d.userId) + ' ' : ''}${d.date} ${d.from}–${d.to}`); save(); render(); toast(`Zapisano ${fmtH(durH(d.from, d.to, d.breakMin))}`);
+  log(`Godziny ${d.userId !== ME.id ? nameOf(d.userId) + ' ' : ''}${d.date} ${d.from}–${d.to}`); save(); render(); toast(`Zapisano ${fmtH(netH(d.from, d.to))}`);
 }
 function msgModal(type = 'user', toId = '') {
   const isF = can.foreman();
