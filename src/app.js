@@ -6,7 +6,7 @@
    ========================================================= */
 'use strict';
 
-const VERSION = '1.1.0';
+const VERSION = '1.1.1';
 const BUILD = '2026-10-18';
 const COMPANY = 'Slangeservice AS';
 const PREVIEW = !!window.CC_PREVIEW;

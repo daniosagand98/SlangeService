@@ -37,7 +37,7 @@ button,input,select,textarea{font:inherit;color:inherit}
 @keyframes float{0%,100%{transform:translate(0,0) scale(1)}33%{transform:translate(50px,-40px) scale(1.08)}66%{transform:translate(-40px,30px) scale(.94)}}
 
 /* ---------- pasek podglądu ról ---------- */
-.pbar{position:sticky;top:0;z-index:30;display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:8px 16px;background:linear-gradient(90deg,rgba(228,55,70,.18),rgba(59,140,255,.14));border-bottom:1px solid rgba(228,55,70,.35);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}
+.pbar{position:sticky;top:0;z-index:30;display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:calc(8px + env(safe-area-inset-top)) calc(16px + env(safe-area-inset-right)) 8px calc(16px + env(safe-area-inset-left));background:linear-gradient(90deg,rgba(228,55,70,.18),rgba(59,140,255,.14));border-bottom:1px solid rgba(228,55,70,.35);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}
 .pbar-l{display:flex;align-items:center;gap:6px;font-weight:700;font-size:12px;letter-spacing:.06em;color:var(--accent2)}
 .seg{display:flex;background:rgba(0,0,0,.3);border:1px solid var(--line);border-radius:999px;padding:3px;gap:2px}
 .seg button{border:0;background:none;padding:5px 12px;border-radius:999px;font-size:13px;font-weight:600;color:var(--muted);cursor:pointer;transition:.25s var(--ease)}
@@ -303,7 +303,7 @@ button.tag{cursor:pointer}
 /* ---------- MAPA (GitHub Actions) ---------- */
 .gwrap{display:grid;grid-template-columns:280px 1fr;gap:0;border:1px solid var(--gh-line);border-radius:18px;overflow:hidden;background:var(--gh-bg);box-shadow:var(--sh);height:min(72vh,760px);min-height:460px;animation:up .6s var(--ease) both}
 .gwrap:not(.ed){grid-template-columns:1fr}
-.gwrap.gfull{position:fixed;inset:0;z-index:80;height:auto;min-height:0;border-radius:0;border:0;animation:none}
+.gwrap.gfull{position:fixed;inset:0;z-index:80;height:auto;min-height:0;border-radius:0;border:0;animation:none;padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom)}
 .gpanel{display:flex;flex-direction:column;gap:10px;padding:14px;border-right:1px solid var(--gh-line);background:#0f141b;min-height:0;transition:background .2s}
 .gp-h{display:flex;align-items:center;justify-content:space-between;gap:8px}
 .gp-search{height:38px;padding:8px 11px;font-size:14px;background:#0d1117;border-color:var(--gh-line)}
@@ -465,7 +465,7 @@ button.tag{cursor:pointer}
 .m-h h3{font-size:17px}
 .m-b{padding:16px 18px;display:flex;flex-direction:column;gap:11px}
 .m-f{display:flex;gap:8px;padding:14px 18px;border-top:1px solid var(--line);position:sticky;bottom:0;background:#0d1626;flex-wrap:wrap}
-#toasts{position:fixed;top:16px;left:50%;transform:translateX(-50%);z-index:200;display:flex;flex-direction:column;gap:8px;align-items:center;pointer-events:none;width:min(440px,calc(100% - 24px))}
+#toasts{position:fixed;top:calc(16px + env(safe-area-inset-top));left:50%;transform:translateX(-50%);z-index:200;display:flex;flex-direction:column;gap:8px;align-items:center;pointer-events:none;width:min(440px,calc(100% - 24px))}
 .toast{display:flex;align-items:center;gap:10px;padding:11px 16px;border-radius:14px;background:rgba(18,30,50,.95);border:1px solid var(--line2);box-shadow:0 14px 34px rgba(0,0,0,.5);font-size:14px;font-weight:500;transform:translateY(-20px) scale(.95);opacity:0;transition:.35s var(--ease)}
 .toast.in{transform:none;opacity:1}
 .toast.ok .i{color:var(--green)}.toast.err{border-color:rgba(255,82,102,.5)}.toast.err .i{color:var(--red)}.toast.info .i{color:var(--accent2)}
@@ -482,7 +482,7 @@ button.tag{cursor:pointer}
 .sheet-grid .badge{position:absolute;top:6px;right:6px}
 
 /* ---------- logowanie ---------- */
-.auth{min-height:100vh;display:grid;place-items:center;padding:20px}
+.auth{min-height:100vh;display:grid;place-items:center;padding:calc(20px + env(safe-area-inset-top)) 20px calc(20px + env(safe-area-inset-bottom))}
 .auth-card{width:min(400px,100%);background:var(--panel);border:1px solid var(--line2);border-radius:24px;padding:30px 26px;display:flex;flex-direction:column;gap:13px;text-align:center;backdrop-filter:blur(18px);box-shadow:0 30px 80px rgba(0,0,0,.5);animation:up .6s var(--ease)}
 .auth-card h1{font-size:28px;font-weight:900;letter-spacing:-.03em}
 .auth-card label{text-align:left}
@@ -541,7 +541,9 @@ button.tag{cursor:pointer}
   .bnav a.on{color:#fff;background:linear-gradient(135deg,#e43746,#ff6a5a)}
   .bnav .badge{position:absolute;top:2px;right:12%;margin:0}
   .bell,.av-btn{display:none}
-  .pbar{padding:7px 12px;gap:8px}
+  .pbar{padding:calc(7px + env(safe-area-inset-top)) 12px 7px;gap:8px}
+  .seg button{min-height:32px}
+  #app>.shell:first-child .top{padding-top:calc(12px + env(safe-area-inset-top))}
   .pbar-t{display:none}
   .seg button{padding:5px 9px;font-size:12px}
 }
