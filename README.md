@@ -42,6 +42,20 @@ Każdy ustawia język w **Moje konto → Język** (Polski / Norsk / English). Me
 - **Kierownik / admin**: menu → **Kopie zapasowe**: cały program, wybrany użytkownik, wybrane części (godziny, domy i auta, rotacje, bilety, dokumenty, wiadomości, karty, zgłoszenia, wypłaty – ta tylko dla księgowej/admina). Kopia całości zastępuje dane; kopia użytkownika/części jest dołączana (nic nie kasuje). W kopiach robionych przez kierownika nie ma autorów anonimowych skarg ani haseł innych osób.
 - **Admin**: Panel admina → kto był online, tabela wszystkich kont (e-mail, ranga, język, status), ustawianie hasła, blokowanie, kopia pojedynczego konta, prośby o reset hasła, logi.
 
+## Tłumaczenie całej aplikacji
+
+Cały interfejs (menu, ekrany, okna, komunikaty, daty) jest po polsku, norwesku albo angielsku – zależnie od języka użytkownika (Moje konto / menu „Więcej”; domyślnie według języka telefonu). Teksty są w `src/i18n-dict.js` (linia: `polski ¦ norsk ¦ english`), silnik w `src/i18n.js`. Po dodaniu nowych ekranów: `node build.js && python3 tools/i18n_crawl.py no` pokaże teksty bez tłumaczenia.
+
+## Instrukcje i prezentacja
+
+- **Instrukcje** (menu → Instrukcje, skrót w Panelu admina): instalacja iOS/Android oraz krótkie instrukcje dla każdej rangi (Pracownik, Foreman, Kierownik, Księgowa, Admin) – zrzut ekranu z numerkami, „gdzie kliknąć” i opis, w PL/NO/EN, z drukiem do PDF.
+- **Prezentacja** (tylko admin): strona sprzedażowa dla szefa firmy po norwesku/angielsku/polsku, z trybem pokazu (strzałki ← →, Esc).
+- Zrzuty generuje `python3 tools/guide_shots.py` (zapisuje `guide/*.webp` i `src/guide-data.js`), potem `node build.js`.
+
+## Kierownictwo
+
+Admin, kierownik i księgowa mieszkają w Norwegii na stałe – nie mają „Mój dom / Moje auto / Moje godziny” ani rotacji; widzą tylko pracowników rotacyjnych (pracownik, foreman).
+
 ## Moje konto i zgłoszenia
 
 Kliknij swoje imię/avatar → **Moje konto**: zmiana hasła (z obecnym hasłem), zmiana e-maila, **Zgłoś błąd w aplikacji** (opis + maks. 3 zrzuty ekranu, trafia do admina), **Napisz do kierownika** (zgłoszenie / informacja / skarga, opcjonalnie **anonimowo**), **Moje zgłoszenia** (status i odpowiedź).

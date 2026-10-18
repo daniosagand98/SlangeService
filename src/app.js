@@ -6,8 +6,9 @@
    ========================================================= */
 'use strict';
 
-const VERSION = '1.6.0';
+const VERSION = '1.7.0';
 const BUILD = '__BUILD_TIME__'; // build.js wstawia tu datę i godzinę aktualizacji
+const GUIDE_IMG = '__GUIDE_IMG__'; // build.js: zrzuty do instrukcji
 const DWS_URL = 'https://github.com/daniosagand98';
 function buildLabel() { const d = new Date(BUILD); if (isNaN(d)) return ''; const p = n => String(n).padStart(2, '0'); return `${p(d.getDate())}.${p(d.getMonth() + 1)}.${d.getFullYear()}, godz. ${p(d.getHours())}:${p(d.getMinutes())}`; }
 function footHTML() { const b = buildLabel(); return `<div class="foot-by">Created and designed by <a href="${DWS_URL}" target="_blank" rel="noopener">DWSystem</a></div><div class="foot-ver">CrewControl wersja ${VERSION}${b ? ` · zaktualizowano ${b}` : ''}</div>`; }
@@ -85,8 +86,15 @@ const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': 
 function isoLocal(d = new Date()) { const z = d.getTimezoneOffset() * 60000; return new Date(d - z).toISOString().slice(0, 10); }
 const monthNow = () => isoLocal().slice(0, 7);
 function addDays(ds, n) { const d = new Date(ds + 'T12:00'); d.setDate(d.getDate() + n); return isoLocal(d); }
-const DOW = ['nd', 'pn', 'wt', 'śr', 'cz', 'pt', 'sb'];
-const MONTHS = ['styczeń', 'luty', 'marzec', 'kwiecień', 'maj', 'czerwiec', 'lipiec', 'sierpień', 'wrzesień', 'październik', 'listopad', 'grudzień'];
+const DOW_L = { pl: ['nd', 'pn', 'wt', 'śr', 'cz', 'pt', 'sb'], no: ['sø', 'ma', 'ti', 'on', 'to', 'fr', 'lø'], en: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] };
+const MONTHS_L = {
+  pl: ['styczeń', 'luty', 'marzec', 'kwiecień', 'maj', 'czerwiec', 'lipiec', 'sierpień', 'wrzesień', 'październik', 'listopad', 'grudzień'],
+  no: ['januar', 'februar', 'mars', 'april', 'mai', 'juni', 'juli', 'august', 'september', 'oktober', 'november', 'desember'],
+  en: ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'],
+};
+const curLang = () => { try { return ME ? langOf() : browserLang(); } catch (_) { return 'pl'; } };
+const DOW = new Proxy([], { get: (_, k) => DOW_L[curLang()][k] ?? DOW_L.pl[k] });
+const MONTHS = new Proxy([], { get: (_, k) => MONTHS_L[curLang()][k] ?? MONTHS_L.pl[k] });
 function fmtDate(ds) { if (!ds) return '—'; const d = new Date(ds + 'T12:00'); return `${DOW[d.getDay()]} ${String(d.getDate()).padStart(2, '0')}.${String(d.getMonth() + 1).padStart(2, '0')}.${d.getFullYear()}`; }
 function fmtMonth(m) { const [y, mm] = m.split('-'); return `${MONTHS[+mm - 1]} ${y}`; }
 function fmtTs(ts) { if (!ts) return '—'; const d = new Date(ts); return `${String(d.getDate()).padStart(2, '0')}.${String(d.getMonth() + 1).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; }
@@ -304,7 +312,9 @@ const carsOfHouse = hid => hid ? DB.cars.filter(c => c.houseId === hid) : [];
 const projById = id => DB.projects.find(p => p.id === id);
 const activeUsers = () => DB.users.filter(u => u.active !== false && !u.pending);
 // ekipa = ludzie, którzy pracują w godzinach (kierownik = właściciel/koordynator na stałej pensji – bez godzin, domów, rotacji)
-const crew = () => activeUsers().filter(u => u.role !== 'kierownik' && u.role !== 'ksiegowa');
+// kierownictwo (admin, kierownik, księgowa) mieszka w Norwegii na stałe – bez rotacji, domu, auta i godzin
+const isMgmt = (u = ME) => ['admin', 'kierownik', 'ksiegowa'].includes(u?.role);
+const crew = () => activeUsers().filter(u => !isMgmt(u));
 const isBoss = (u = ME) => u?.role === 'kierownik';
 
 function touch() {
@@ -378,6 +388,8 @@ const NAV = [
   { id: 'projects', icon: 'folder', label: 'Projekty', min: 2, hide: ['ksiegowa'] },
   { id: 'people', icon: 'users', label: 'Pracownicy', min: 3 },
   { id: 'backup', icon: 'dl', label: 'Kopie zapasowe', min: 3 },
+  { id: 'guide', icon: 'file', label: 'Instrukcje', min: 1, hide: ['ksiegowa'] },
+  { id: 'pitch', icon: 'target', label: 'Prezentacja', min: 4 },
   { id: 'admin', icon: 'shield', label: 'Panel admina', min: 4 },
 ];
 const BNAV = ['dash', 'hours', 'rota', 'tickets'];
@@ -393,6 +405,7 @@ function navBadge(id) {
   if (id === 'msgs') return unreadCount();
   if (id === 'cards') return pendingForMe().length;
   if (id === 'reports') return openReportsCount();
+  if (id === 'cars' && can.manage()) return DB.reports.filter(r => r.type === 'car' && r.status === 'open').length;
   if (id === 'people' && can.manage()) return DB.users.filter(u => u.pending).length + (DB.resetRequests || []).filter(r => r.status === 'open').length;
   return 0;
 }
@@ -435,7 +448,7 @@ function shell(v) {
       <section class="view" key="${VIEW}">${v.html}</section>
       <footer class="foot">${footHTML()}<div class="foot-note">${esc(COMPANY)} · ${PREVIEW ? 'tryb podglądu (dane demo, lokalnie)' : 'dane zapisywane lokalnie w tej przeglądarce'}</div></footer>
     </main>
-    <nav class="bnav">${bnav().map(id => { const n = NAV.find(x => x.id === id); const b = navBadge(id); return `<a href="#${id}" class="${VIEW === id ? 'on' : ''}" data-act="go" data-v="${id}">${ic(n.icon)}<span>${navLabel(n).split(' ')[0]}</span>${b ? `<b class="badge">${b}</b>` : ''}</a>`; }).join('')}
+    <nav class="bnav">${bnav().map(id => { const n = NAV.find(x => x.id === id); const b = navBadge(id); return `<a href="#${id}" class="${VIEW === id ? 'on' : ''}" data-act="go" data-v="${id}">${ic(n.icon)}<span>${({ no: { hours: 'Timer', rota: 'Plan', tickets: 'Billetter', pay: 'Lønn', msgs: 'Meldinger' }, en: { hours: 'Hours', rota: 'Schedule', tickets: 'Tickets', pay: 'Payroll', msgs: 'Messages' } })[langOf()]?.[id] || navLabel(n).split(' ')[0]}</span>${b ? `<b class="badge">${b}</b>` : ''}</a>`; }).join('')}
       <a href="#more" data-act="menu">${ic('menu')}<span>${NAV_T[langOf()]?.more || 'Więcej'}</span>${(navBadge('msgs') + navBadge('cards') + navBadge('people')) ? `<b class="badge">${navBadge('msgs') + navBadge('cards') + navBadge('people')}</b>` : ''}</a></nav>
   </div>`;
 }
@@ -544,7 +557,7 @@ async function authRegister(f) {
   if (pass.length < 4) throw new Error('Hasło musi mieć min. 4 znaki');
   if (pass !== String(fd.get('pass2'))) throw new Error('Hasła nie są takie same');
   const first = DB.users.length === 0;
-  const u = { id: uid(), name, login, pass: await sha(pass), role: first ? 'admin' : 'pracownik', phone: String(fd.get('phone') || ''), email: '', houseId: '', carId: '', groupId: '', active: true, pending: !first, createdAt: Date.now(), lastSeen: first ? Date.now() : 0 };
+  const u = { id: uid(), name, login, lang: browserLang(), pass: await sha(pass), role: first ? 'admin' : 'pracownik', phone: String(fd.get('phone') || ''), email: '', houseId: '', carId: '', groupId: '', active: true, pending: !first, createdAt: Date.now(), lastSeen: first ? Date.now() : 0 };
   let code = '';
   if (first) { code = genCode(); u.recovery = await sha(code); }
   DB.users.push(u);
@@ -625,18 +638,18 @@ VIEWS.dash = () => {
   const pend = pendingForMe();
   const house = houseById(ME.houseId), car = carById(ME.carId);
   const myCards = DB.fuelCards.filter(c => c.holderId === ME.id);
-  const boss = isBoss();
+  const boss = isMgmt();
   const tickets = DB.tickets.filter(t => (boss || t.groupId === ME.groupId || (t.userIds || []).includes(ME.id)) && t.date >= T).sort((a, b) => a.date.localeCompare(b.date));
   const msgs = myMessages().filter(m => m.fromId !== ME.id).sort((a, b) => b.createdAt - a.createdAt).slice(0, 3);
   const hr = new Date().getHours();
   const hello = hr < 5 ? 'Dobranoc' : hr < 12 ? 'Dzień dobry' : hr < 18 ? 'Cześć' : 'Dobry wieczór';
 
   let heroSub, heroAct;
-  if (boss) {
+  if (isMgmt()) {
     const inNO = crew().filter(u => rotStatus(groupById(u.groupId), T) === 'NO');
     const doneToday = inNO.filter(u => DB.hours.some(h => h.userId === u.id && h.date === T)).length;
     heroSub = `W Norwegii dziś: <b>${inNO.length}</b> os. · godziny wpisane dziś: <b>${doneToday}</b> z ${inNO.length}`;
-    heroAct = `<button type="button" class="btn primary" data-act="hours-add-for">${ic('plus')} Dodaj godziny pracownikowi</button>`;
+    heroAct = ME.role === 'ksiegowa' ? `<button type="button" class="btn primary" data-act="go" data-v="pay">${ic('coin')} Rozliczenie wypłat</button>` : `<button type="button" class="btn primary" data-act="hours-add-for">${ic('plus')} Dodaj godziny pracownikowi</button>`;
   } else {
     heroSub = st ? `Jesteś teraz: ${statusPill(st)} ${nc ? `· zmiana za <b>${nc.days}</b> dni (${fmtDate(nc.date)})` : ''}` : 'Nie masz jeszcze przypisanej rotacji.';
     heroAct = todayH.length ? `<span class="pill ok">${ic('check')} Dziś wpisano ${fmtH(sumH(todayH))}</span>` : `<button type="button" class="btn primary" data-act="go" data-v="hours">${ic('plus')} Wpisz dzisiejsze godziny</button>`;
@@ -683,6 +696,13 @@ VIEWS.dash = () => {
       <div class="card anim" style="--i:8"><div class="card-h"><h3>Auta – przypomnienia</h3></div>
         ${carAlerts().length ? carAlerts().map(a => `<div class="li">${ic('car')}<div class="grow"><b>${esc(a.car.name)}</b> <span class="muted small">${esc(a.car.plate)}</span><div class="muted small">${a.text}</div></div><span class="pill warn">!</span></div>`).join('') : empty('Wszystko w porządku', 'check')}
       </div></div>`;
+  } else if (isMgmt()) {
+    const ws = crew(), teamH = sumH(DB.hours.filter(h => h.date.startsWith(M)));
+    html += `<div class="stats">
+      ${stat('Pracowników', ws.length, { icon: 'users', i: 1 })}
+      ${stat('W Norwegii teraz', ws.filter(u => rotStatus(groupById(u.groupId), T) === 'NO').length, { icon: 'pin', tone: 'blue', i: 2 })}
+      ${stat(`Godziny zespołu – ${MONTHS[+M.slice(5) - 1]}`, round2(teamH), { icon: 'clock', go: 'hours', i: 3, dec: 0, suf: ' h' })}
+    </div>`;
   } else {
     html += `<div class="stats">
       ${stat(`Moje godziny – ${MONTHS[+M.slice(5) - 1]}`, round2(myH), { icon: 'clock', go: 'hours', i: 1, suf: ' h' })}
@@ -691,10 +711,10 @@ VIEWS.dash = () => {
       ${stat('Karta paliwowa', myCards.length ? esc(myCards.map(c => '•••• ' + c.last4).join(', ')) : 'nie mam', { icon: 'card', go: 'cards', i: 4 })}
     </div>`;
   }
-  if (!can.manage() && house) {
+  if (!isMgmt() && house) {
     const mates = crew().filter(u => u.houseId === house.id && u.id !== ME.id), hc = carsOfHouse(house.id);
     html += `<div class="card anim myhouse" style="--i:8"><div class="card-h"><div><h3>${ic('house')} Mój dom: ${esc(house.name)}</h3><div class="muted small">${ic('pin')} ${esc(house.address || '')}</div></div><span class="pill">${mates.length + 1}/${house.beds || '–'}</span></div>
-      <div><div class="lbl">Auta przy domu</div>${hc.length ? `<div class="hcars">${hc.map(c => { const drivers = crew().filter(u => u.carId === c.id); return `<div class="hcar">${ic('car')}<div class="grow"><b>${esc(c.name)}</b> <span class="plate sm">${esc(c.plate || '—')}</span><div class="muted small">${c.seats || '?'} miejsc · ${(+c.odometer || 0).toLocaleString('pl')} km${drivers.length ? ' · jeżdżą: ' + drivers.map(u => esc(u.name.split(' ')[0])).join(', ') : ''}</div></div>${c.id === ME.carId ? '<span class="pill ok">Twoje</span>' : ''}</div>`; }).join('')}</div>` : '<div class="muted small">Do tego domu nie ma jeszcze przypisanych aut.</div>'}</div>
+      <div><div class="lbl">Auta przy domu</div>${hc.length ? `<div class="hcars">${hc.map(c => { const drivers = crew().filter(u => u.carId === c.id); return `<div class="hcar">${ic('car')}<div class="grow"><b>${esc(c.name)}</b> <span class="plate sm">${esc(c.plate || '—')}</span><div class="muted small">${c.seats || '?'} miejsc · ${(+c.odometer || 0).toLocaleString('pl')} km${drivers.length ? ' · jeżdżą: ' + drivers.map(u => esc(u.name.split(' ')[0])).join(', ') : ''}</div></div>${c.id === ME.carId ? '<span class="pill ok">Twoje</span>' : ''}<button type="button" class="btn sm ghost" data-act="car-problem" data-id="${c.id}" title="Zgłoś problem z tym autem">${ic('warn')}<span class="hide-s"> Problem</span></button></div>`; }).join('')}</div>` : '<div class="muted small">Do tego domu nie ma jeszcze przypisanych aut.</div>'}</div>
       ${mates.length ? `<div><div class="lbl">Mieszkasz z</div><div class="tags">${mates.map(u => `<span class="tag">${esc(u.name)}</span>`).join('')}</div></div>` : ''}
     </div>`;
   }
@@ -723,7 +743,7 @@ function splitRow(s = {}) {
 function hoursFormHTML(e = {}) {
   const splits = e.splits?.length ? e.splits : [{}];
   return `<div class="hform">
-    ${can.foreman() ? (() => { const sel = e.userId !== undefined ? e.userId : (isBoss() ? '' : ME.id); const pick = !sel || !crew().some(u => u.id === sel); return `<label>Pracownik<select name="userId" ${pick ? 'required' : ''}>${pick ? '<option value="">— wybierz pracownika —</option>' : ''}${crew().map(u => opt(u.id, u.name, sel === u.id)).join('')}</select></label>`; })() : ''}
+    ${can.foreman() ? (() => { const sel = e.userId !== undefined ? e.userId : (isMgmt() ? '' : ME.id); const pick = !sel || !crew().some(u => u.id === sel); return `<label>Pracownik<select name="userId" ${pick ? 'required' : ''}>${pick ? '<option value="">— wybierz pracownika —</option>' : ''}${crew().map(u => opt(u.id, u.name, sel === u.id)).join('')}</select></label>`; })() : ''}
     <div class="g3 tight"><label>Data<input type="date" name="date" value="${e.date || isoLocal()}" required></label>
       <label>Od<input type="time" name="from" value="${e.from || '07:00'}" required></label>
       <label>Do<input type="time" name="to" value="${e.to || '18:00'}" required></label></div>
@@ -772,7 +792,7 @@ function entryRow(x, showUser) {
 }
 function monthPicker() { return `<input type="month" class="mpick" value="${ST.month}" data-chg="month">`; }
 VIEWS.hours = () => {
-  const tabs = [...(isBoss() || ME.role === 'ksiegowa' ? [] : [['mine', 'Moje']]), ...(can.foreman() ? [['team', 'Zespół'], ['proj', 'Projekty']] : [])];
+  const tabs = [...(isMgmt() ? [] : [['mine', 'Moje']]), ...(can.foreman() ? [['team', 'Zespół'], ['proj', 'Projekty']] : [])];
   if (!tabs.find(t => t[0] === ST.hoursTab)) ST.hoursTab = tabs[0][0];
   let html = `<div class="tabs">${tabs.map(([k, l]) => `<button type="button" class="${ST.hoursTab === k ? 'on' : ''}" data-act="hours-tab" data-k="${k}">${l}</button>`).join('')}<span class="grow"></span>${monthPicker()}</div>`;
   const M = ST.month;
@@ -792,8 +812,8 @@ VIEWS.hours = () => {
     const list = DB.hours.filter(h => h.date.startsWith(M));
     const rows = crew().map(u => { const l = list.filter(h => h.userId === u.id); const byP = {}; l.forEach(x => (x.splits || []).forEach(s => byP[s.projectId] = (byP[s.projectId] || 0) + s.hours)); return { u, tot: sumH(l), days: new Set(l.map(x => x.date)).size, byP }; }).sort((a, b) => b.tot - a.tot);
     const max = Math.max(1, ...rows.map(r => r.tot));
-    if (isBoss()) html += `<form class="card anim" data-sub="hours-add"><div class="card-h"><h3>Dodaj godziny dla pracownika</h3></div>${hoursFormHTML({})}<button class="btn primary block" type="submit">${ic('check')} Zapisz godziny</button></form>`;
-    html += `<div class="row wrap gap">${isBoss() ? '' : `<button type="button" class="btn primary" data-act="hours-add-for">${ic('plus')} Dodaj godziny pracownikowi</button>`}<button type="button" class="btn ghost" data-act="export-hours">${ic('dl')} Eksport CSV (${fmtMonth(M)})</button></div>
+    if (isMgmt()) html += `<form class="card anim" data-sub="hours-add"><div class="card-h"><h3>Dodaj godziny dla pracownika</h3></div>${hoursFormHTML({})}<button class="btn primary block" type="submit">${ic('check')} Zapisz godziny</button></form>`;
+    html += `<div class="row wrap gap">${isMgmt() ? '' : `<button type="button" class="btn primary" data-act="hours-add-for">${ic('plus')} Dodaj godziny pracownikowi</button>`}<button type="button" class="btn ghost" data-act="export-hours">${ic('dl')} Eksport CSV (${fmtMonth(M)})</button></div>
     <div class="card anim"><div class="card-h"><h3>Godziny zespołu – ${fmtMonth(M)}</h3><span class="pill">${fmtH(sumH(list))}</span></div>
     ${rows.map((r, i) => `<div class="trow anim" style="--i:${i}" data-act="user-hours" data-id="${r.u.id}">
       ${avatar(r.u)}<div class="grow"><div class="row"><b>${esc(r.u.name)}</b><span class="muted small">${r.days} dni</span><span class="grow"></span><b>${fmtH(r.tot)}</b></div>
@@ -808,7 +828,7 @@ VIEWS.hours = () => {
       ${Object.entries(per).sort((a, b) => b[1] - a[1]).map(([u, h]) => `<div class="li sm">${avatar(userById(u))}<span class="grow">${esc(nameOf(u))}</span><b>${fmtH(h)}</b></div>`).join('') || '<div class="muted small">Brak godzin w tym miesiącu</div>'}</div>`;
     }).join('') || empty('Brak projektów')}</div>`;
   }
-  return { title: isBoss() ? 'Godziny pracowników' : 'Godziny pracy', sub: isBoss() ? 'Kontrola godzin zespołu i projektów' : 'Od której do której + podział na projekty', html };
+  return { title: isMgmt() ? 'Godziny pracowników' : 'Godziny pracy', sub: isMgmt() ? 'Kontrola godzin zespołu i projektów' : 'Od której do której + podział na projekty', html };
 };
 function projBars(byP, tot) {
   const e = Object.entries(byP).sort((a, b) => b[1] - a[1]);
@@ -845,7 +865,7 @@ VIEWS.rotations = () => {
 };
 VIEWS.rota = () => {
   const T = isoLocal(); const g = groupById(ME.groupId); const st = rotStatus(g, T); const nc = nextChange(g, T);
-  const personal = !can.manage() || !!g;
+  const personal = !isMgmt();
   let html = '';
   if (can.manage()) {
     html += `<div class="card maplink anim"><div class="row gap">${ic('swap')}<div class="grow"><b>Sterowanie rotacjami</b><div class="muted small">${DB.groups.length} ${DB.groups.length === 1 ? 'rotacja' : 'rotacji'} · tworzenie, przesuwanie cykli, przypisywanie ludzi</div></div><button type="button" class="btn sm primary" data-act="go" data-v="rotations">Otwórz</button></div></div>`;
@@ -941,7 +961,7 @@ function mapHTML() {
   const carBlock = c => {
     const cap = +c.seats || 0, mem = ws.filter(u => u.carId === c.id), stt = status(mem.length, cap), free = Math.max(0, cap - mem.length);
     return `<div class="gcar dz st-${stt} ${mem.some(u => u.id === ME.id) ? 'mine' : ''}" data-kind="car" ${ed ? `data-drop="${c.id}" data-act="drop"` : ''}>
-      <div class="gcar-h">${ic('car')}<b>${esc(c.name)}</b><span class="plate sm">${esc(c.plate || '—')}</span><span class="grow"></span><span class="gn-c"><b>${mem.length}</b>/${cap || '–'}</span>${ed ? `<button type="button" class="ib sm gn-e" data-act="car-edit" data-id="${c.id}" aria-label="Edytuj auto">${ic('edit')}</button>` : ''}</div>
+      <div class="gcar-h">${ic('car')}<b>${esc(c.name)}</b>${probBadge(c)}<span class="plate sm">${esc(c.plate || '—')}</span><span class="grow"></span><span class="gn-c"><b>${mem.length}</b>/${cap || '–'}</span>${ed ? `<button type="button" class="ib sm gn-e" data-act="car-edit" data-id="${c.id}" aria-label="Edytuj auto">${ic('edit')}</button>` : ''}</div>
       <div class="gcar-ppl">${mem.map(u => personChip(u, 'car', { editable: ed })).join('')}${free ? `<span class="slot sm">${free} ${free === 1 ? 'wolne miejsce' : 'wolne'}</span>` : ''}</div>
     </div>`;
   };
@@ -965,7 +985,7 @@ function mapHTML() {
     return `<div class="gn gn-car dz st-${stt} ${mem.some(u => u.id === ME.id) ? 'mine' : ''}" data-node="${c.id}" data-kind="car" ${ed ? `data-drop="${c.id}" data-act="drop"` : ''}>
       <div class="gn-h">
         <span class="gst">${stt === 'ok' ? ic('check') : stt === 'full' ? ic('warn') : ''}</span>
-        <span class="gn-t">${esc(c.name)}</span>
+        <span class="gn-t">${esc(c.name)}</span>${probBadge(c)}
         <span class="gn-c"><b>${mem.length}</b>/${cap || '–'}</span>
         ${ed ? `<button type="button" class="ib sm gn-e" data-act="car-edit" data-id="${c.id}" aria-label="Edytuj auto">${ic('edit')}</button>` : ''}
       </div>
@@ -1208,20 +1228,30 @@ function carStats(c) {
   return { refuels: r, cons, monthL: mr.reduce((s, x) => s + (+x.liters || 0), 0), monthNOK: mr.reduce((s, x) => s + (+x.amount || 0), 0), last: [...r].sort((a, b) => b.date.localeCompare(a.date))[0] };
 }
 VIEWS.cars = () => {
-  const ed = can.manage();
-  let html = '';
-  html += `<div class="card anim maplink"><div class="row gap">${ic('house')}<div class="grow"><b>Przypisywanie ludzi do aut jest teraz na wspólnej mapie</b><div class="muted small">Domy, auta i pracownicy w jednym miejscu.</div></div><button type="button" class="btn sm primary" data-act="go" data-v="houses">Otwórz mapę</button></div></div>`;
-  html += `<h2 class="sec-t">Szczegóły aut</h2><div class="cgrid">${DB.cars.map((c, i) => {
-    const s = carStats(c); const users = crew().filter(u => u.carId === c.id);
-    return `<div class="card car anim ${ME.carId === c.id ? 'mine' : ''}" style="--i:${i}">
-      <div class="card-h"><div><h3>${esc(c.name)}</h3><span class="plate">${esc(c.plate || '—')}</span></div>${ed ? `<button type="button" class="ib" data-act="car-edit" data-id="${c.id}">${ic('edit')}</button>` : ''}</div>
-      <div class="kv"><div><span>Dom</span><b>${esc(houseById(c.houseId)?.name || '—')}</b></div><div><span>Przebieg</span><b>${(+c.odometer || 0).toLocaleString('pl')} km</b></div><div><span>Spalanie</span><b>${s.cons ? fmtNum(s.cons) + ' l/100' : '—'}</b></div>
-      <div><span>Ten miesiąc</span><b>${fmtNum(s.monthL)} l · ${Math.round(s.monthNOK).toLocaleString('pl')} kr</b></div><div><span>EU-kontroll</span><b>${c.euDate ? fmtDate(c.euDate) : '—'}</b></div></div>
+  const ed = can.manage(), T = isoLocal();
+  const euDays = c => c.euDate ? Math.round((new Date(c.euDate + 'T12:00') - new Date(T + 'T12:00')) / 864e5) : null;
+  const open = DB.reports.filter(r => r.type === 'car' && r.status === 'open');
+  const soon = DB.cars.filter(c => { const d = euDays(c); return d !== null && d <= 45; }).length;
+  let html = `<div class="stats">${stat('Auta', DB.cars.length, { icon: 'car' })}${stat('Zgłoszone problemy', open.length, { icon: 'warn', tone: open.length ? 'warn' : 'green', i: 1 })}${stat('EU-kontroll ≤ 45 dni', soon, { icon: 'cal', tone: soon ? 'warn' : 'blue', i: 2 })}${stat('Przebieg floty', DB.cars.reduce((a, c) => a + (+c.odometer || 0), 0).toLocaleString('pl') + ' km', { icon: 'target', i: 3 })}</div>
+    <div class="muted small cars-hint">${ic('house')} Kto czym jeździ i przy którym domu stoi auto – ustawiasz na <button type="button" class="link small" data-act="go" data-v="houses">wspólnej mapie</button>.</div>`;
+  html += `<div class="cgrid">${[...DB.cars].sort((a, b) => carProblems(b.id).length - carProblems(a.id).length || (euDays(a) ?? 9999) - (euDays(b) ?? 9999)).map((c, i) => {
+    const s = carStats(c), users = crew().filter(u => u.carId === c.id), d = euDays(c), probs = carProblems(c.id);
+    const euCls = d === null ? '' : d < 0 ? 'bad' : d <= 30 ? 'warn' : 'ok';
+    const svcLeft = c.serviceKm ? c.serviceKm - (+c.odometer || 0) : null;
+    return `<div class="card car anim ${ME.carId === c.id ? 'mine' : ''} ${probs.length ? 'has-prob' : ''}" style="--i:${i}">
+      <div class="card-h"><div class="car-t"><h3>${esc(c.name)}</h3><span class="plate">${esc(c.plate || '—')}</span></div>
+        ${probs.length ? `<button type="button" class="cprob big" data-act="car-problems" data-id="${c.id}" title="Zgłoszone problemy">${ic('warn')}${probs.length}</button>` : ''}
+        ${ed ? `<button type="button" class="ib" data-act="car-edit" data-id="${c.id}" aria-label="Edytuj">${ic('edit')}</button>` : ''}</div>
+      <div class="car-big"><div><span>EU-kontroll</span><b class="eu ${euCls}">${c.euDate ? fmtDate(c.euDate) : '—'}</b><em>${d === null ? 'brak daty' : d < 0 ? `przeterminowana ${-d} dni` : `za ${d} dni`}</em></div>
+        <div><span>Przebieg</span><b>${(+c.odometer || 0).toLocaleString('pl')} km</b><em>${svcLeft === null ? '' : svcLeft <= 0 ? 'serwis zaległy' : `serwis za ${svcLeft.toLocaleString('pl')} km`}</em></div></div>
+      ${probs.length ? `<div class="car-probs">${probs.slice(0, 3).map(r => `<div class="cp-row">${ic('warn')}<span class="grow"><b>${esc(r.title || 'Problem')}</b><span class="muted small"> · ${esc(nameOf(r.fromId))} · ${relTime(r.createdAt)}</span></span></div>`).join('')}${probs.length > 3 ? `<div class="muted small">+${probs.length - 3} więcej</div>` : ''}<button type="button" class="btn sm ghost" data-act="car-problems" data-id="${c.id}">Zobacz i załatw</button></div>` : ''}
+      <div class="kv"><div><span>Dom</span><b>${esc(houseById(c.houseId)?.name || '—')}</b></div><div><span>Paliwo</span><b>${esc(c.fuel || '—')}</b></div><div><span>Spalanie</span><b>${s.cons ? fmtNum(s.cons) + ' l/100' : '—'}</b></div>
+      <div><span>Ten miesiąc</span><b>${fmtNum(s.monthL)} l · ${Math.round(s.monthNOK).toLocaleString('pl')} kr</b></div></div>
       <div class="tags">${users.map(u => `<span class="tag">${esc(u.name)}</span>`).join('') || '<span class="muted small">Nikt nie przypisany</span>'}</div>
-      <div class="row gap"><button type="button" class="btn sm primary" data-act="refuel-add" data-id="${c.id}">${ic('fuel')} Tankowanie</button><button type="button" class="btn sm ghost" data-act="car-history" data-id="${c.id}">Historia (${s.refuels.length})</button><button type="button" class="btn sm ghost" data-act="odo" data-id="${c.id}">Licznik</button></div>
+      <div class="row gap wrap"><button type="button" class="btn sm primary" data-act="refuel-add" data-id="${c.id}">${ic('fuel')} Tankowanie</button><button type="button" class="btn sm ghost" data-act="odo" data-id="${c.id}">Licznik</button><button type="button" class="btn sm ghost" data-act="car-history" data-id="${c.id}">Historia (${s.refuels.length})</button><button type="button" class="btn sm ghost" data-act="car-problem" data-id="${c.id}">${ic('warn')} Zgłoś problem</button></div>
     </div>`;
   }).join('') || empty('Brak aut', 'car')}</div>`;
-  return { title: 'Auta', sub: 'Przebiegi, tankowania, przypisania', html, action: ed ? `<button type="button" class="btn primary" data-act="car-edit">${ic('plus')}<span class="hide-s"> Auto</span></button>` : '' };
+  return { title: 'Auta', sub: 'Każde auto: EU-kontroll, przebieg, serwis, tankowania i zgłoszone problemy', html, action: ed ? `<button type="button" class="btn primary" data-act="car-edit">${ic('plus')}<span class="hide-s"> Auto</span></button>` : '' };
 };
 
 /* ----- KARTY PALIWOWE ----- */
@@ -1452,11 +1482,20 @@ VIEWS.user = () => {
    JĘZYKI (PL / NO / EN) + automatyczne tłumaczenie wiadomości
    ========================================================= */
 const LANGS = { pl: { label: 'Polski', flag: '🇵🇱', api: 'pl-PL' }, no: { label: 'Norsk', flag: '🇳🇴', api: 'nb-NO' }, en: { label: 'English', flag: '🇬🇧', api: 'en-GB' } };
-const langOf = (u = ME) => LANGS[u?.lang] ? u.lang : 'pl';
+// język z ustawień przeglądarki: norweski (nb/nn/no) → NO, polski → PL, inne → EN
+function browserLang() {
+  for (const l of (navigator.languages && navigator.languages.length ? navigator.languages : [navigator.language || 'pl'])) {
+    const c = String(l).toLowerCase().slice(0, 2);
+    if (c === 'nb' || c === 'nn' || c === 'no') return 'no'; if (c === 'pl') return 'pl'; if (c === 'en') return 'en';
+  }
+  return 'en';
+}
+const langOf = (u = ME) => LANGS[u?.lang] ? u.lang : browserLang();
+const langRow = () => `<div class="acc-langs">${Object.entries(LANGS).map(([k, l]) => `<button type="button" class="${langOf() === k ? 'on' : ''}" data-act="set-lang" data-k="${k}"><span class="flag">${l.flag}</span>${l.label}</button>`).join('')}</div>`;
 // nawigacja w języku użytkownika (reszta interfejsu na razie po polsku)
 const NAV_T = {
-  no: { dash: 'Oversikt', hours: 'Arbeidstimer', rota: 'Turnus og plan', rotations: 'Styr turnuser', pay: 'Lønn', houses: 'Kart', cars: 'Biler', cards: 'Drivstoffkort', tickets: 'Billetter og reise', docs: 'Dokumenter', msgs: 'Meldinger', reports: 'Meldinger til ledelsen', projects: 'Prosjekter', people: 'Ansatte', backup: 'Sikkerhetskopi', admin: 'Adminpanel', more: 'Mer' },
-  en: { dash: 'Dashboard', hours: 'Work hours', rota: 'Schedule & rotations', rotations: 'Manage rotations', pay: 'Payroll', houses: 'Map', cars: 'Cars', cards: 'Fuel cards', tickets: 'Tickets & travel', docs: 'Documents', msgs: 'Messages', reports: 'Reports', projects: 'Projects', people: 'Employees', backup: 'Backups', admin: 'Admin panel', more: 'More' },
+  no: { dash: 'Oversikt', hours: 'Arbeidstimer', rota: 'Turnus og plan', rotations: 'Styr turnuser', pay: 'Lønn', houses: 'Kart', cars: 'Biler', cards: 'Drivstoffkort', tickets: 'Billetter og reise', docs: 'Dokumenter', msgs: 'Meldinger', reports: 'Meldinger til ledelsen', projects: 'Prosjekter', people: 'Ansatte', backup: 'Sikkerhetskopi', guide: 'Bruksanvisning', pitch: 'Presentasjon', admin: 'Adminpanel', more: 'Mer' },
+  en: { dash: 'Dashboard', hours: 'Work hours', rota: 'Schedule & rotations', rotations: 'Manage rotations', pay: 'Payroll', houses: 'Map', cars: 'Cars', cards: 'Fuel cards', tickets: 'Tickets & travel', docs: 'Documents', msgs: 'Messages', reports: 'Reports', projects: 'Projects', people: 'Employees', backup: 'Backups', guide: 'User guides', pitch: 'Presentation', admin: 'Admin panel', more: 'More' },
 };
 const navLabel = n => NAV_T[langOf()]?.[n.id] || n.label;
 const TR_UI = {
@@ -1705,7 +1744,9 @@ function payDetail(u) {
 }
 
 /* ----- ZGŁOSZENIA (błędy → admin, zgłoszenia/informacje/skargi → kierownik) ----- */
-const RTYPE = { bug: { label: 'Błąd w aplikacji', icon: 'bug', tone: 'warn' }, info: { label: 'Informacja', icon: 'chat', tone: 'blue' }, request: { label: 'Zgłoszenie', icon: 'flag', tone: 'blue' }, complaint: { label: 'Skarga', icon: 'warn', tone: 'err' } };
+const RTYPE = { bug: { label: 'Błąd w aplikacji', icon: 'bug', tone: 'warn' }, info: { label: 'Informacja', icon: 'chat', tone: 'blue' }, request: { label: 'Zgłoszenie', icon: 'flag', tone: 'blue' }, complaint: { label: 'Skarga', icon: 'warn', tone: 'err' }, car: { label: 'Problem z autem', icon: 'car', tone: 'warn' } };
+const carProblems = (carId, all = false) => DB.reports.filter(r => r.type === 'car' && r.carId === carId && (all || r.status === 'open'));
+const probBadge = c => { const n = carProblems(c.id).length; return n ? `<b class="cprob" title="Zgłoszone problemy">${n}</b>` : ''; };
 // admin widzi wszystko; kierownik nie widzi błędów aplikacji (te idą do admina)
 const visibleReports = () => !can.manage() ? [] : DB.reports.filter(r => can.admin() || r.type !== 'bug');
 const openReportsCount = () => visibleReports().filter(r => r.status === 'open').length;
@@ -1719,6 +1760,7 @@ function reportCard(r, i, mine = false) {
   return `<div class="card rep anim st-${r.status}" style="--i:${i}">
     <div class="rep-h"><span class="pill ${T.tone}">${ic(T.icon)} ${T.label}</span>${r.status === 'done' ? `<span class="pill ok">${ic('check')} Załatwione</span>` : '<span class="pill">Otwarte</span>'}<span class="grow"></span><span class="muted small">${fmtTs(r.createdAt)}</span></div>
     ${mine ? (r.anon ? `<div class="muted small">${ic('shield')} Wysłane anonimowo – kierownik nie widzi, że to Ty</div>` : '') : `<div class="rep-from">${reportFrom(r)}</div>`}
+    ${r.carId ? `<div class="rep-car">${ic('car')} <b>${esc(carById(r.carId)?.name || 'auto')}</b> <span class="plate sm">${esc(carById(r.carId)?.plate || '—')}</span></div>` : ''}
     ${r.title ? `<h3 class="rep-t">${esc(r.title)}</h3>` : ''}
     <div class="rep-txt">${esc(r.text)}</div>
     ${(r.fileIds || []).length ? `<div class="thumbs">${r.fileIds.map(f => `<button type="button" class="thumb" data-thumb="${f}" data-act="view-file" data-id="${f}"></button>`).join('')}</div>` : ''}
@@ -1755,8 +1797,8 @@ VIEWS.admin = () => {
   let html = `<div class="stats">${stat('Online teraz', online, { icon: 'eye', tone: 'green' })}${stat('Aktywni (24 h)', today, { icon: 'users', tone: 'blue', i: 1 })}${stat('Kont', DB.users.length, { icon: 'shield', i: 2 })}${stat('Wpisów w logu', DB.logs.length, { icon: 'file', i: 3 })}</div>
   <div class="grid2"><div class="card anim" style="--i:4"><div class="card-h"><h3>Kto był online</h3></div>
     ${us.map(u => { const on = u.lastSeen && now - u.lastSeen < 5 * 60000; const hM = sumH(DB.hours.filter(h => h.userId === u.id && h.date.startsWith(monthNow()))); return `<div class="li click" data-act="go-user" data-id="${u.id}">${avatar(u)}<div class="grow"><b>${esc(u.name)}</b> <span class="role r-${u.role}">${ROLES[u.role].label}</span><div class="muted small"><span class="odot ${on ? 'on' : ''}"></span>${on ? 'online' : relTime(u.lastSeen)} · ${fmtH(hM)} w tym mies.</div></div>${ic('eye')}</div>`; }).join('')}</div>
-  <div class="card anim" style="--i:5"><div class="card-h"><h3>Kopie i reset hasła</h3></div>
-    <div class="col gap"><button type="button" class="btn primary block" data-act="go" data-v="backup">${ic('dl')} Kopie zapasowe (całość / użytkownik / części)</button>
+  <div class="card anim" style="--i:5"><div class="card-h"><h3>Instrukcje, kopie i reset hasła</h3></div>
+    <div class="col gap"><button type="button" class="btn ghost block" data-act="go" data-v="guide">${ic('file')} Instrukcje: instalacja iOS/Android, dla pracownika, dla szefa (PL/NO/EN)</button><button type="button" class="btn ghost block" data-act="go" data-v="pitch">${ic('target')} Prezentacja aplikacji dla szefa firmy (NO/EN/PL)</button><button type="button" class="btn primary block" data-act="go" data-v="backup">${ic('dl')} Kopie zapasowe (całość / użytkownik / części)</button>
     ${resetsOpen.length ? resetsOpen.map(r => { const u = userById(r.userId); return `<div class="li">${avatar(u)}<div class="grow"><b>${esc(u.name)}</b><div class="muted small">prosi o reset hasła · ${relTime(r.at)}</div></div><button type="button" class="btn sm primary" data-act="admin-set-pass" data-id="${u.id}" data-req="${r.id}">${ic('key')} Ustaw</button></div>`; }).join('') : '<div class="muted small">Brak próśb o reset hasła.</div>'}</div>
     <div class="muted small" style="margin-top:12px">Ostatnia kopia: ${DB.meta.lastBackup ? fmtTs(DB.meta.lastBackup) : 'nigdy'}</div></div></div>
   <div class="card anim" style="--i:6"><div class="card-h"><h3>Wszystkie konta</h3><span class="pill">${DB.users.length}</span></div>
@@ -1786,17 +1828,19 @@ const ACT = {
     const mine = DB.reports.filter(r => r.fromId === ME.id), canPass = ME.id === REAL.id && !PREVIEW;
     const tile = (act, icon, t, d, badge) => `<button type="button" class="acc-t" data-act="${act}"><span class="acc-ic">${ic(icon)}</span><span class="grow"><b>${t}</b><span class="muted small">${d}</span></span>${badge ? `<b class="badge">${badge}</b>` : ''}</button>`;
     modal('Moje konto', `<div class="row gap">${avatar(ME, 1)}<div><b>${esc(ME.name)}</b><div class="muted small">${ROLES[ME.role].label} · @${esc(ME.login)}${ME.email ? ' · ' + esc(ME.email) : ''}</div></div></div>
+      <div class="lbl" style="margin-top:14px">Język / Språk / Language${ME.lang ? '' : ' <span class="muted">· z przeglądarki</span>'}</div>${langRow()}
       <div class="acc-grid">
         ${tile('acc-pass', 'lock', 'Zmień hasło', canPass ? 'Podaj obecne i nowe hasło' : 'Wyłączone w trybie podglądu')}
         ${tile('acc-email', 'mail', 'Zmień e-mail', ME.email ? esc(ME.email) : 'Nie podano adresu')}
-        ${tile('acc-boss', 'flag', 'Napisz do kierownika', 'Zgłoszenie, informacja albo skarga – także anonimowo')}
+        ${isMgmt() ? '' : tile('acc-boss', 'flag', 'Napisz do kierownika', 'Zgłoszenie, informacja albo skarga – także anonimowo')}
+        ${isMgmt() ? '' : tile('car-problem', 'car', 'Zgłoś problem z autem', ME.carId && carById(ME.carId) ? `${esc(carById(ME.carId).name)} – usterka, opony, światła, szkoda…` : 'Usterka, opony, światła, szkoda…')}
         ${tile('acc-bug', 'bug', 'Zgłoś błąd w aplikacji', 'Opis + maks. 3 zrzuty ekranu')}
-        ${tile('acc-lang', 'chat', 'Język / Språk / Language', `${LANGS[langOf()].flag} ${LANGS[langOf()].label} – wiadomości tłumaczą się na ten język`)}
         ${tile('acc-backup', 'dl', 'Kopia mojego konta', 'Pobierz swoje dane: godziny, dokumenty, bilety, wiadomości')}
         ${tile('acc-mine', 'file', 'Moje zgłoszenia', mine.length ? `${mine.length} wysłanych` : 'Jeszcze nic nie wysłano', mine.filter(r => r.reply && !r.replySeen).length)}
       </div>
       <div class="row gap wrap"><button type="button" class="btn ghost" data-act="go-user" data-id="${ME.id}">Mój profil</button><button type="button" class="btn ghost" data-act="install-help">${ic('dl')} Dodaj do ekranu</button>${canPass ? `<button type="button" class="btn ghost" data-act="new-recovery">${ic('key')} Nowy kod odzyskiwania</button>` : ''}${!PREVIEW ? `<button type="button" class="btn danger" data-act="logout">${ic('logout')} Wyloguj</button>` : ''}</div>`);
   },
+  'set-lang': el => { const l = el.dataset.k; if (!LANGS[l]) return; ME.lang = l; log('Język: ' + LANGS[l].label); save(); $$('.acc-langs button').forEach(b => b.classList.toggle('on', b.dataset.k === l)); render(); toast(LANGS[l].flag + ' ' + LANGS[l].label); },
   'acc-lang': () => {
     modal('Język / Språk / Language', `<div class="langs">${Object.entries(LANGS).map(([k, l]) => `<label class="rchip"><input type="radio" name="lang" value="${k}" ${langOf() === k ? 'checked' : ''}><span class="flag">${l.flag}</span><span>${l.label}</span></label>`).join('')}</div>
       <p class="muted small">Wiadomości od kierownika, foremana i księgowej będą automatycznie tłumaczone na wybrany język (zawsze możesz zobaczyć oryginał). Twoje wiadomości są wysyłane w tym języku i tłumaczone u odbiorcy. Menu też zmieni język.</p>`, {
@@ -1852,6 +1896,27 @@ const ACT = {
       },
     });
   },
+  'car-problem': el => {
+    const cid = el?.dataset?.id || ME.carId || carsOfHouse(ME.houseId)[0]?.id || DB.cars[0]?.id;
+    if (!DB.cars.length) return toast('Brak aut w aplikacji', 'err');
+    const cats = ['Silnik / nie odpala', 'Hamulce', 'Opony / koła', 'Światła', 'Uszkodzenie / stłuczka', 'Lampka na desce', 'Inne'];
+    modal('Problem z autem', `<label>Auto<select name="carId" required>${DB.cars.map(c => opt(c.id, `${c.name} · ${c.plate || '—'}`, c.id === cid)).join('')}</select></label>
+      <label>Co się dzieje<select name="title">${cats.map(c => opt(c, c)).join('')}</select></label>
+      <label>Opis<textarea name="text" rows="4" required placeholder="Np. od rana świeci kontrolka silnika, auto szarpie przy ruszaniu."></textarea></label>
+      <label class="check"><input type="checkbox" name="urgent"> Pilne – auto nie nadaje się do jazdy</label>
+      ${shotsField()}`, {
+      submitLabel: 'Zgłoś', onSubmit: async fd => {
+        const c = carById(fd.get('carId')); const text = String(fd.get('text')).trim(); if (!c || !text) throw new Error('Wybierz auto i opisz problem');
+        const fileIds = await saveShots(fd);
+        DB.reports.push({ id: uid(), type: 'car', carId: c.id, title: (fd.get('urgent') === 'on' ? '⚠️ PILNE · ' : '') + fd.get('title'), text, fromId: ME.id, anon: false, fileIds, status: 'open', createdAt: Date.now(), odo: c.odometer });
+        log(`Problem z autem ${c.name}: ${fd.get('title')}`); save(); render(); toast('Zgłoszono problem z autem ' + c.name);
+      },
+    });
+  },
+  'car-problems': el => {
+    const c = carById(el.dataset.id); if (!c) return; const list = carProblems(c.id, true).sort((a, b) => (a.status === 'open' ? 0 : 1) - (b.status === 'open' ? 0 : 1) || b.createdAt - a.createdAt);
+    modal(`Problemy – ${c.name} (${c.plate || '—'})`, list.length ? `<div class="reps">${list.map((r, i) => reportCard(r, i)).join('')}</div>` : empty('Brak zgłoszonych problemów', 'check'), { wide: true }); hydrateThumbs();
+  },
   'acc-bug': () => {
     modal('Zgłoś błąd w aplikacji', `<p class="muted small">Zgłoszenie trafi do admina. Opisz, co robiłeś i co poszło nie tak.</p>
       <label>Gdzie wystąpił błąd<input name="title" maxlength="80" required placeholder="np. Godziny pracy – zapis dnia"></label>
@@ -1897,6 +1962,9 @@ const ACT = {
     const csv = '\ufeff' + rows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(';')).join('\n');
     const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' })); a.download = `wyplaty-${M}.csv`; document.body.appendChild(a); a.click(); a.remove(); log('Eksport wypłat ' + M);
   },
+  'guide-tab': el => { ST.guideTab = el.dataset.k; render(); },
+  'guide-lang': el => { ST.guideLang = el.dataset.k; render(); },
+  'guide-print': () => window.print(),
   'rep-tab': el => { ST.repTab = el.dataset.k; render(); },
   'logout': () => { closeModal(); logout(); },
   'auth-tab': el => { AUTH_TAB = el.dataset.k; renderAuth(); },
@@ -2206,7 +2274,7 @@ function openMenu() {
   const items = NAV.filter(navOk);
   const d = document.createElement('div'); d.className = 'sheet-ov'; d.dataset.act = 'close-menu';
   d.innerHTML = `<div class="sheet" onclick="event.stopPropagation()"><div class="grab"></div><div class="sheet-grid">${items.map(n => { const b = navBadge(n.id); return `<a href="#${n.id}" class="${VIEW === n.id ? 'on' : ''}" data-act="go" data-v="${n.id}">${ic(n.icon)}<span>${navLabel(n)}</span>${b ? `<b class="badge">${b}</b>` : ''}</a>`; }).join('')}</div>
-  <button type="button" class="me wide" data-act="profile">${avatar(ME)}<div><div class="me-n">${esc(ME.name)}</div><div class="me-r">${ROLES[ME.role].label}</div></div></button></div>`;
+  <button type="button" class="me wide" data-act="profile">${avatar(ME)}<div><div class="me-n">${esc(ME.name)}</div><div class="me-r">${ROLES[ME.role].label}</div></div></button>${langRow()}</div>`;
   d.querySelector('.sheet').addEventListener('click', e => { const el = e.target.closest('[data-act]'); if (el) { e.preventDefault(); const fn = ACT[el.dataset.act]; closeMenu(); fn && fn(el, e); } });
   document.body.appendChild(d); requestAnimationFrame(() => d.classList.add('in'));
 }
