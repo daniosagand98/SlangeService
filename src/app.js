@@ -6,7 +6,7 @@
    ========================================================= */
 'use strict';
 
-const VERSION = '1.0.1';
+const VERSION = '1.1.0';
 const BUILD = '2026-10-18';
 const COMPANY = 'Slangeservice AS';
 const PREVIEW = !!window.CC_PREVIEW;
@@ -113,7 +113,7 @@ async function sha(s) {
 
 /* ---------- baza danych ---------- */
 let DB;
-function emptyDB() { return { users: [], houses: [], cars: [], refuels: [], fuelCards: [], cardTransfers: [], projects: [], hours: [], groups: [], tickets: [], docs: [], messages: [], logs: [], meta: {} }; }
+function emptyDB() { return { users: [], houses: [], cars: [], refuels: [], fuelCards: [], cardTransfers: [], projects: [], hours: [], groups: [], tickets: [], docs: [], messages: [], logs: [], resetRequests: [], meta: {} }; }
 function load() {
   try { DB = JSON.parse(localStorage.getItem(STORE_KEY)); } catch (e) { DB = null; }
   if (!DB) { DB = emptyDB(); if (PREVIEW) seed(); }
@@ -258,6 +258,8 @@ function seed() {
     { id: uid(), fromId: users[0].id, toType: 'all', toId: '', text: 'Witajcie w nowej aplikacji 👋 Wpisujcie codziennie godziny i projekty.', createdAt: Date.now() - 86400e3, readBy: [] },
   );
   DB.docs.push({ id: uid(), userId: users[3].id, name: 'Umowa o pracę 2026 (demo – bez pliku)', fileId: '', createdAt: Date.now() - 864e5 * 5 });
+  DB.users.push({ id: uid(), name: 'Oskar Nowicki', login: 'oskar', role: 'pracownik', pass: '', phone: '+47 400 11 222', email: '', houseId: '', carId: '', groupId: '', active: true, pending: true, createdAt: Date.now() - 1800e3, lastSeen: 0 });
+  DB.resetRequests = [{ id: uid(), userId: users[4].id, at: Date.now() - 900e3, status: 'open' }];
   DB.logs.push({ id: uid(), userId: users[0].id, action: 'Utworzono dane demonstracyjne', at: Date.now() });
 }
 
@@ -276,7 +278,7 @@ const houseById = id => DB.houses.find(h => h.id === id);
 const carById = id => DB.cars.find(c => c.id === id);
 const groupById = id => DB.groups.find(g => g.id === id);
 const projById = id => DB.projects.find(p => p.id === id);
-const activeUsers = () => DB.users.filter(u => u.active !== false);
+const activeUsers = () => DB.users.filter(u => u.active !== false && !u.pending);
 
 function touch() {
   if (!REAL) return;
@@ -357,6 +359,7 @@ const pendingForMe = (u = ME) => DB.cardTransfers.filter(t => t.status === 'pend
 function navBadge(id) {
   if (id === 'msgs') return unreadCount();
   if (id === 'cards') return pendingForMe().length;
+  if (id === 'people' && can.manage()) return DB.users.filter(u => u.pending).length + (DB.resetRequests || []).filter(r => r.status === 'open').length;
   return 0;
 }
 
@@ -380,7 +383,7 @@ function shell(v) {
   return `${previewBar()}
   <div class="shell">
     <aside class="side">
-      <div class="brand"><div class="logo">S</div><div><div class="brand-t">CrewControl</div><div class="brand-s">${esc(COMPANY)}</div></div></div>
+      <div class="brand">${LOGO ? `<img class="brand-logo" src="${LOGO}" alt="${esc(COMPANY)}">` : '<div class="logo">S</div>'}<div class="brand-t">CrewControl</div></div>
       <nav class="nav">${navItems.map(n => link(n)).join('')}</nav>
       <div class="side-foot">
         <button type="button" class="me" data-act="profile">${avatar(ME)}<div><div class="me-n">${esc(ME.name)}</div><div class="me-r">${ROLES[ME.role].label}</div></div></button>
@@ -399,7 +402,7 @@ function shell(v) {
       <footer class="foot">CrewControl v${VERSION} · ${BUILD} · ${esc(COMPANY)} · ${PREVIEW ? 'tryb podglądu (dane demo, lokalnie)' : 'dane zapisywane lokalnie w tej przeglądarce'}</footer>
     </main>
     <nav class="bnav">${BNAV.map(id => { const n = NAV.find(x => x.id === id); const b = navBadge(id); return `<a href="#${id}" class="${VIEW === id ? 'on' : ''}" data-act="go" data-v="${id}">${ic(n.icon)}<span>${n.label.split(' ')[0]}</span>${b ? `<b class="badge">${b}</b>` : ''}</a>`; }).join('')}
-      <a href="#more" data-act="menu">${ic('menu')}<span>Więcej</span>${(navBadge('msgs') + navBadge('cards')) ? `<b class="badge">${navBadge('msgs') + navBadge('cards')}</b>` : ''}</a></nav>
+      <a href="#more" data-act="menu">${ic('menu')}<span>Więcej</span>${(navBadge('msgs') + navBadge('cards') + navBadge('people')) ? `<b class="badge">${navBadge('msgs') + navBadge('cards') + navBadge('people')}</b>` : ''}</a></nav>
   </div>`;
 }
 let LAST_VIEW = null, LAST_ARG = null, LAST_ME = null;
@@ -431,36 +434,144 @@ function after(still) {
 }
 function go(v, arg = null) { VIEW = v; ARG = arg; SELECTED = null; history.replaceState(null, '', '#' + v); render(); window.scrollTo({ top: 0, behavior: 'smooth' }); }
 
-/* ---------- logowanie ---------- */
-function renderAuth() {
-  const first = DB.users.length === 0;
-  $('#app').innerHTML = `<div class="auth"><form class="auth-card" id="authForm">
-    <div class="logo big">S</div>
-    <h1>CrewControl</h1><p class="muted">${esc(COMPANY)}</p>
-    ${first ? `<p class="hint">Pierwsze uruchomienie – utwórz konto administratora.</p>
-      <label>Imię i nazwisko<input name="name" required></label>` : ''}
-    <label>Login<input name="login" required autocomplete="username" autocapitalize="none"></label>
-    <label>Hasło<input name="pass" type="password" required autocomplete="${first ? 'new-password' : 'current-password'}"></label>
-    <button class="btn primary block" type="submit">${first ? 'Utwórz konto admina' : 'Zaloguj'}</button>
-    <div class="foot">CrewControl v${VERSION} · ${BUILD}</div>
-  </form></div>`;
-  $('#authForm').onsubmit = async e => {
-    e.preventDefault(); const fd = new FormData(e.target);
-    const login = String(fd.get('login')).trim().toLowerCase(), pass = String(fd.get('pass'));
-    if (first) {
-      if (pass.length < 4) return toast('Hasło min. 4 znaki', 'err');
-      const u = { id: uid(), name: String(fd.get('name')).trim(), login, pass: await sha(pass), role: 'admin', phone: '', email: '', houseId: '', carId: '', groupId: '', active: true, createdAt: Date.now(), lastSeen: Date.now() };
-      DB.users.push(u); REAL = ME = u; log('Utworzono konto administratora'); save();
-    } else {
-      const u = DB.users.find(x => x.login === login && x.active !== false);
-      if (!u || u.pass !== await sha(pass)) return toast('Błędny login lub hasło', 'err');
-      REAL = ME = u; log('Zalogowano'); save();
-    }
-    localStorage.setItem(SESSION_KEY, REAL.id);
-    render();
-  };
+/* ---------- logowanie / rejestracja / reset ---------- */
+let AUTH_TAB = null;          // 'login' | 'register' | 'reset'
+const LOGO = window.CC_LOGO || '';
+function genCode() { const a = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; let s = ''; const r = crypto.getRandomValues(new Uint8Array(10)); for (let i = 0; i < 10; i++) { s += a[r[i] % a.length]; if (i === 4) s += '-'; } return s; }
+function showRecoveryCode(code, first) {
+  modal('Kod odzyskiwania hasła', `<p>${first ? 'Konto administratora gotowe. ' : ''}Zapisz ten kod w bezpiecznym miejscu (np. zrób zrzut ekranu). Pozwoli Ci ustawić nowe hasło, jeśli zapomnisz obecnego.</p>
+    <div class="code-box">${esc(code)}</div><p class="muted small">Kod pokazuje się tylko raz. Nowy wygenerujesz w „Moje konto”.</p>`,
+    { onSubmit: () => { }, submitLabel: 'Zapisałem kod' });
 }
-function logout() { log('Wylogowano'); save(); localStorage.removeItem(SESSION_KEY); REAL = ME = null; VIEW = 'dash'; render(); }
+function authLogoHTML() { return LOGO ? `<img class="auth-logo" src="${LOGO}" alt="${esc(COMPANY)}">` : '<div class="logo big">S</div>'; }
+function renderAuth() {
+  const none = DB.users.length === 0;
+  const tab = AUTH_TAB || (none ? 'register' : 'login');
+  const seg = `<div class="seg auth-seg"><button type="button" class="${tab === 'login' ? 'on' : ''}" data-act="auth-tab" data-k="login">Zaloguj się</button><button type="button" class="${tab === 'register' ? 'on' : ''}" data-act="auth-tab" data-k="register">Załóż konto</button></div>`;
+  let body = '';
+  if (tab === 'login') {
+    body = `${none ? `<div class="hint">Na tym urządzeniu nie ma jeszcze żadnych kont. Jeśli konto masz już gdzie indziej (np. w Safari), wczytaj kopię zapasową poniżej.</div>` : ''}
+      <form class="auth-form" data-sub="auth-login">
+        <label>Login<input name="login" required autocomplete="username" autocapitalize="none" autocorrect="off"></label>
+        <label>Hasło<input name="pass" type="password" required autocomplete="current-password"></label>
+        <button class="btn primary block" type="submit">Zaloguj się</button>
+      </form>
+      <button type="button" class="link center" data-act="auth-tab" data-k="reset">Nie pamiętam hasła</button>`;
+  } else if (tab === 'register') {
+    body = `<div class="hint ${none ? '' : 'soft'}">${none ? 'Pierwsze konto na tym urządzeniu zostanie <b>administratorem</b>.' : 'Po założeniu konto czeka na akceptację kierownika lub admina.'}</div>
+      <form class="auth-form" data-sub="auth-register">
+        <label>Imię i nazwisko<input name="name" required autocomplete="name"></label>
+        <div class="g2"><label>Login<input name="login" required autocomplete="username" autocapitalize="none" autocorrect="off"></label><label>Telefon<input name="phone" inputmode="tel" autocomplete="tel" placeholder="opcjonalnie"></label></div>
+        <div class="g2"><label>Hasło<input name="pass" type="password" required minlength="4" autocomplete="new-password"></label><label>Powtórz hasło<input name="pass2" type="password" required minlength="4" autocomplete="new-password"></label></div>
+        <button class="btn primary block" type="submit">${none ? 'Utwórz konto admina' : 'Załóż konto'}</button>
+      </form>`;
+  } else {
+    body = `<div class="auth-sub"><button type="button" class="link" data-act="auth-tab" data-k="login">← Wróć do logowania</button><h3>Reset hasła</h3></div>
+      <form class="auth-form" data-sub="auth-reset-code">
+        <div class="muted small">Masz kod odzyskiwania? Ustaw nowe hasło od razu.</div>
+        <div class="g2"><label>Login<input name="login" required autocapitalize="none" autocorrect="off"></label><label>Kod odzyskiwania<input name="code" required autocapitalize="characters" placeholder="XXXXX-XXXXX"></label></div>
+        <div class="g2"><label>Nowe hasło<input name="pass" type="password" required minlength="4" autocomplete="new-password"></label><label>Powtórz<input name="pass2" type="password" required minlength="4" autocomplete="new-password"></label></div>
+        <button class="btn primary block" type="submit">Ustaw nowe hasło</button>
+      </form>
+      <div class="or"><span>albo</span></div>
+      <form class="auth-form" data-sub="auth-reset-request">
+        <div class="muted small">Nie masz kodu? Wyślij prośbę – kierownik albo admin ustawi Ci nowe hasło.</div>
+        <div class="row gap"><input name="login" required placeholder="Twój login" autocapitalize="none" autocorrect="off"><button class="btn ghost" type="submit">Wyślij prośbę</button></div>
+      </form>`;
+  }
+  $('#app').innerHTML = `<div class="auth"><div class="auth-card">
+    ${authLogoHTML()}
+    <div class="auth-title">CrewControl</div>
+    ${tab !== 'reset' ? seg : ''}
+    ${body}
+    <div class="auth-alt">
+      <label class="btn ghost block filebtn">${ic('up')} Wczytaj kopię zapasową<input type="file" accept=".json,application/json" data-chg="restore" hidden></label>
+      <button type="button" class="link center" data-act="install-help">${ic('dl')} Jak dodać do ekranu telefonu?</button>
+    </div>
+    <div class="foot">CrewControl v${VERSION} · ${BUILD} · ${esc(COMPANY)}</div>
+  </div></div>`;
+}
+async function authLogin(f) {
+  const fd = new FormData(f);
+  const login = String(fd.get('login')).trim().toLowerCase(), pass = String(fd.get('pass'));
+  const u = DB.users.find(x => x.login === login);
+  if (!u || u.pass !== await sha(pass)) throw new Error('Błędny login lub hasło');
+  if (u.pending) throw new Error('Konto czeka na akceptację kierownika lub admina');
+  if (u.active === false) throw new Error('Konto jest zablokowane – skontaktuj się z kierownikiem');
+  REAL = ME = u; log('Zalogowano'); save();
+  localStorage.setItem(SESSION_KEY, REAL.id); AUTH_TAB = null; render();
+}
+async function authRegister(f) {
+  const fd = new FormData(f);
+  const name = String(fd.get('name')).trim(), login = String(fd.get('login')).trim().toLowerCase(), pass = String(fd.get('pass'));
+  if (!name || !login) throw new Error('Uzupełnij imię i login');
+  if (!/^[a-z0-9._-]{2,30}$/.test(login)) throw new Error('Login: same litery bez polskich znaków, cyfry, kropka lub myślnik');
+  if (DB.users.some(x => x.login === login)) throw new Error('Taki login jest już zajęty');
+  if (pass.length < 4) throw new Error('Hasło musi mieć min. 4 znaki');
+  if (pass !== String(fd.get('pass2'))) throw new Error('Hasła nie są takie same');
+  const first = DB.users.length === 0;
+  const u = { id: uid(), name, login, pass: await sha(pass), role: first ? 'admin' : 'pracownik', phone: String(fd.get('phone') || ''), email: '', houseId: '', carId: '', groupId: '', active: true, pending: !first, createdAt: Date.now(), lastSeen: first ? Date.now() : 0 };
+  let code = '';
+  if (first) { code = genCode(); u.recovery = await sha(code); }
+  DB.users.push(u);
+  DB.logs.unshift({ id: uid(), userId: u.id, action: first ? 'Utworzono konto administratora' : 'Założono konto (czeka na akceptację)', at: Date.now() });
+  save();
+  if (first) { REAL = ME = u; localStorage.setItem(SESSION_KEY, u.id); AUTH_TAB = null; render(); showRecoveryCode(code, true); }
+  else { AUTH_TAB = 'login'; render(); toast('Konto założone – poczekaj na akceptację kierownika', 'info'); }
+}
+async function authResetCode(f) {
+  const fd = new FormData(f);
+  const u = DB.users.find(x => x.login === String(fd.get('login')).trim().toLowerCase());
+  const code = String(fd.get('code')).trim().toUpperCase().replace(/\s/g, '');
+  const pass = String(fd.get('pass'));
+  if (pass.length < 4) throw new Error('Hasło musi mieć min. 4 znaki');
+  if (pass !== String(fd.get('pass2'))) throw new Error('Hasła nie są takie same');
+  if (!u || !u.recovery || u.recovery !== await sha(code.includes('-') ? code : code.slice(0, 5) + '-' + code.slice(5))) throw new Error('Nieprawidłowy login lub kod odzyskiwania');
+  u.pass = await sha(pass);
+  DB.logs.unshift({ id: uid(), userId: u.id, action: 'Reset hasła kodem odzyskiwania', at: Date.now() }); save();
+  AUTH_TAB = 'login'; render(); toast('Hasło zmienione – zaloguj się');
+}
+function authResetRequest(f) {
+  const login = String(new FormData(f).get('login')).trim().toLowerCase();
+  const u = DB.users.find(x => x.login === login);
+  if (u && !DB.resetRequests.some(r => r.userId === u.id && r.status === 'open')) {
+    DB.resetRequests.push({ id: uid(), userId: u.id, at: Date.now(), status: 'open' });
+    DB.logs.unshift({ id: uid(), userId: u.id, action: 'Prośba o reset hasła', at: Date.now() }); save();
+  }
+  AUTH_TAB = 'login'; render(); toast('Prośba wysłana – kierownik ustawi Ci nowe hasło', 'info');
+}
+function logout() { log('Wylogowano'); save(); localStorage.removeItem(SESSION_KEY); REAL = ME = null; VIEW = 'dash'; AUTH_TAB = 'login'; render(); }
+
+/* ---------- instalacja na ekranie telefonu ---------- */
+const PLATFORM = /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1) ? 'ios' : /android/i.test(navigator.userAgent) ? 'android' : 'desktop';
+const isStandalone = () => window.matchMedia?.('(display-mode: standalone)').matches || navigator.standalone === true;
+let DEFERRED_INSTALL = null;
+window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); DEFERRED_INSTALL = e; });
+window.addEventListener('appinstalled', () => { DEFERRED_INSTALL = null; toast('Aplikacja dodana do ekranu'); });
+const SHARE_IC = '<svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M8 7l4-4 4 4M6 11H5a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-8a1 1 0 0 0-1-1h-1"/></svg>';
+const DOTS_V = '<b class="kbd">⋮</b>', DOTS_H = '<b class="kbd">•••</b>';
+function installHTML(tab) {
+  const url = location.protocol.startsWith('http') ? location.origin + location.pathname.replace(/preview\.html$/, '') : 'https://daniosagand98.github.io/SlangeService/';
+  const step = (n, html) => `<div class="istep"><span class="inum">${n}</span><div>${html}</div></div>`;
+  const ios = `
+    ${step(1, `Otwórz stronę w <b>Safari</b>:<div class="url">${esc(url)}</div>`)}
+    ${step(2, `Stuknij przycisk <b>Udostępnij</b> <span class="kbd">${SHARE_IC}</span> na dolnym pasku. W nowszym Safari (iOS 26) najpierw stuknij ${DOTS_H} obok adresu strony, potem <b>Udostępnij</b>.`)}
+    ${step(3, `Przewiń listę w dół i wybierz <b>„Do ekranu początkowego”</b>.`)}
+    ${step(4, `Zostaw włączone <b>„Otwórz jako aplikacja internetowa”</b> (jeśli jest), nazwa „Slangeservice”, i stuknij <b>Dodaj</b>.`)}
+    ${step(5, `Na ekranie pojawi się ikona z logo. Otwieraj aplikację zawsze z niej.`)}
+    <div class="inote">${ic('bell')}<div><b>Wersja testowa:</b> aplikacja z ikony na iPhonie ma osobne dane niż Safari. Jeśli konto masz już w Safari: w Safari wejdź w <b>Panel admina → Pobierz kopię zapasową</b>, a potem w aplikacji z ikony na ekranie logowania stuknij <b>Wczytaj kopię zapasową</b>. Po podłączeniu serwera ten krok zniknie.</div></div>`;
+  const android = `
+    ${DEFERRED_INSTALL ? `<button type="button" class="btn primary block" data-act="install-now">${ic('dl')} Zainstaluj teraz</button><div class="or"><span>albo ręcznie</span></div>` : ''}
+    ${step(1, `Otwórz stronę w <b>Chrome</b>:<div class="url">${esc(url)}</div>`)}
+    ${step(2, `Stuknij ${DOTS_V} (trzy kropki w prawym górnym rogu).`)}
+    ${step(3, `Wybierz <b>„Zainstaluj aplikację”</b> albo <b>„Dodaj do ekranu głównego”</b>.`)}
+    ${step(4, `Potwierdź <b>Zainstaluj</b>. Ikona z logo trafi na ekran i do listy aplikacji.`)}
+    <div class="inote">${ic('bell')}<div><b>Samsung Internet:</b> stuknij ≡ → <b>„Dodaj stronę do”</b> → <b>„Ekran startowy”</b>.</div></div>`;
+  return `<div class="seg itabs"><button type="button" class="${tab === 'ios' ? 'on' : ''}" data-act="install-tab" data-k="ios">iPhone</button><button type="button" class="${tab === 'android' ? 'on' : ''}" data-act="install-tab" data-k="android">Android</button></div>
+    <div class="iapp">${LOGO ? `<img src="icons/apple-touch-icon.png" alt="" onerror="this.remove()">` : ''}<div><b>Slangeservice</b><div class="muted small">Ikona aplikacji na ekranie telefonu</div></div></div>
+    <div class="isteps">${tab === 'ios' ? ios : android}</div>`;
+}
+function installHelp(tab) { modal('Dodaj aplikację do ekranu', `<div id="installBody">${installHTML(tab || (PLATFORM === 'android' ? 'android' : 'ios'))}</div>`); }
 
 /* =========================================================
    WIDOKI
@@ -491,6 +602,8 @@ VIEWS.dash = () => {
     <div class="hero-act">${todayH.length ? `<span class="pill ok">${ic('check')} Dziś wpisano ${fmtH(sumH(todayH))}</span>` : `<button type="button" class="btn primary" data-act="go" data-v="hours">${ic('plus')} Wpisz dzisiejsze godziny</button>`}</div>
   </div>`;
 
+  if (!isStandalone() && PLATFORM !== 'desktop' && !localStorage.getItem('cc_install_hide')) html += `<div class="ibanner anim">${LOGO ? `<img src="${LOGO}" alt="">` : ''}<div class="grow"><b>Dodaj aplikację do ekranu telefonu</b><div class="muted small">Ikona Slangeservice, otwiera się jak zwykła aplikacja.</div></div><button type="button" class="btn sm primary" data-act="install-help">Pokaż jak</button><button type="button" class="ib sm" data-act="install-hide" aria-label="Ukryj">${ic('x')}</button></div>`;
+  if (can.manage()) { const np = DB.users.filter(u => u.pending).length, nr = DB.resetRequests.filter(r => r.status === 'open').length; if (np || nr) html += `<div class="alert anim">${ic('users')}<div class="grow">${np ? `<b>${np}</b> ${np === 1 ? 'nowe konto czeka' : 'nowe konta czekają'} na akceptację. ` : ''}${nr ? `<b>${nr}</b> ${nr === 1 ? 'prośba' : 'prośby'} o reset hasła.` : ''}</div><button type="button" class="btn primary sm" data-act="go" data-v="people">Przejdź</button></div>`; }
   if (pend.length) html += pend.map(t => { const c = DB.fuelCards.find(x => x.id === t.cardId); return `<div class="alert anim">${ic('card')}<div class="grow"><b>${esc(nameOf(t.fromId))}</b> przekazuje Ci kartę paliwową <b>${esc(c?.name)}</b> (•••• ${esc(c?.last4)}). Potwierdź, że ją dostałeś.</div><div class="row"><button type="button" class="btn ghost sm" data-act="card-reject" data-id="${t.id}">Odrzuć</button><button type="button" class="btn primary sm" data-act="card-accept" data-id="${t.id}">${ic('check')} Mam kartę</button></div></div>`; }).join('');
 
   if (can.manage()) {
@@ -764,7 +877,7 @@ function graphHTML(kind) {
     <div class="gcanvas" data-gkind="${kind}">
       <div class="gworld">
         <svg class="gedges" width="1" height="1" aria-hidden="true"></svg>
-        <div class="gn hub" data-node="__hub"><div class="gn-h"><span class="logo sm">${kind === 'house' ? 'S' : ic('car')}</span><span class="gn-t">${esc(C.hubT)}</span></div><div class="gn-sub"><span>${C.hubS(items.length, used, totalCap)}</span></div><div class="bar"><i style="--w:${totalCap ? Math.min(100, used / totalCap * 100) : 0}%"></i></div></div>
+        <div class="gn hub" data-node="__hub"><div class="gn-h">${kind === 'house' && LOGO ? `<img class="hub-logo" src="${LOGO}" alt="${esc(COMPANY)}" draggable="false">` : `<span class="logo sm">${kind === 'house' ? 'S' : ic('car')}</span><span class="gn-t">${esc(C.hubT)}</span>`}</div><div class="gn-sub"><span>${C.hubS(items.length, used, totalCap)}</span></div><div class="bar"><i style="--w:${totalCap ? Math.min(100, used / totalCap * 100) : 0}%"></i></div></div>
         ${items.map(node).join('')}
       </div>
       ${!items.length ? `<div class="g-empty">${ic(C.icon)}<p>Brak pozycji.${ed ? ` Dodaj pierwszy ${C.unit} przyciskiem u góry.` : ''}</p></div>` : ''}
@@ -795,7 +908,8 @@ function graphAutoLayout(cv, mode) {
     let y = hh + 34; nodes.forEach(n => { P[n.dataset.node] = { x: 46, y }; y += n.offsetHeight + gap; });
   } else {
     // jak w GitHub Actions: centrum po lewej, kafelki w jednej kolumnie po prawej
-    P.__hub = { x: 0, y: 0 };
+    const hh0 = hub.querySelector('.gn-h'); const hpy = hh0 ? hh0.offsetTop + hh0.offsetHeight / 2 : 25;
+    P.__hub = { x: 0, y: Math.round(25 - hpy) };
     let y = 0; nodes.forEach(n => { P[n.dataset.node] = { x: hw + 130, y }; y += n.offsetHeight + gap; });
   }
   L.mode = mode;
@@ -821,6 +935,7 @@ function drawEdges(cv) {
   const P = layoutOf(cv.dataset.gkind).pos, hub = $('.gn.hub', cv), svg = $('.gedges', cv);
   const hp = P.__hub; if (!hp || !svg) return;
   const hw = hub.offsetWidth, hh = hub.offsetHeight, PY = 25;
+  const hh0 = hub.querySelector('.gn-h'); const HPY = hh0 ? hh0.offsetTop + hh0.offsetHeight / 2 : PY;
   let paths = '', dots = '';
   const hubPorts = new Set();
   $$('.gn:not(.hub)', cv).forEach(n => {
@@ -835,7 +950,7 @@ function drawEdges(cv) {
       hubPorts.add(`${x1},${y1}`);
     } else {
       const right = p.x + w / 2 >= hp.x + hw / 2, dir = right ? 1 : -1;
-      const x1 = right ? hp.x + hw : hp.x, y1 = hp.y + PY; x2 = right ? p.x : p.x + w;
+      const x1 = right ? hp.x + hw : hp.x, y1 = hp.y + HPY; x2 = right ? p.x : p.x + w;
       d = edgePath(x1, y1, x2, y2, dir); hubPorts.add(`${x1},${y1}`);
     }
     paths += `<path class="e e-${st}" d="${d}"/>${st !== 'idle' ? `<path class="e-flow e-${st}" d="${d}"/>` : ''}`;
@@ -1140,7 +1255,15 @@ function projectDetail(id) {
 /* ----- PRACOWNICY ----- */
 VIEWS.people = () => {
   const T = isoLocal();
-  const html = `<div class="ugrid">${DB.users.sort((a, b) => (ROLES[b.role].rank - ROLES[a.role].rank) || a.name.localeCompare(b.name)).map((u, i) => {
+  const pendingU = DB.users.filter(u => u.pending), resets = DB.resetRequests.filter(r => r.status === 'open' && userById(r.userId));
+  let top = '';
+  if (pendingU.length) top += `<div class="card anim accent-card"><div class="card-h"><h3>Nowe konta – czekają na akceptację</h3><span class="pill warn">${pendingU.length}</span></div>
+    ${pendingU.map(u => `<div class="li">${avatar(u)}<div class="grow"><b>${esc(u.name)}</b><div class="muted small">@${esc(u.login)}${u.phone ? ' · ' + esc(u.phone) : ''} · ${relTime(u.createdAt)}</div></div>
+      <select class="mini" id="role-${u.id}">${Object.keys(ROLES).filter(r => rank() >= 4 || ROLES[r].rank < 3).map(r => opt(r, ROLES[r].label, r === 'pracownik')).join('')}</select>
+      <button type="button" class="btn sm primary" data-act="approve-user" data-id="${u.id}">${ic('check')}<span class="hide-s"> Akceptuj</span></button><button type="button" class="ib sm" data-act="reject-user" data-id="${u.id}" aria-label="Odrzuć">${ic('x')}</button></div>`).join('')}</div>`;
+  if (resets.length) top += `<div class="card anim accent-card"><div class="card-h"><h3>Prośby o reset hasła</h3><span class="pill warn">${resets.length}</span></div>
+    ${resets.map(r => { const u = userById(r.userId); return `<div class="li">${avatar(u)}<div class="grow"><b>${esc(u.name)}</b><div class="muted small">@${esc(u.login)} · ${relTime(r.at)}</div></div><button type="button" class="btn sm primary" data-act="admin-set-pass" data-id="${u.id}" data-req="${r.id}">${ic('key')} Ustaw hasło</button><button type="button" class="ib sm" data-act="reset-dismiss" data-id="${r.id}" aria-label="Odrzuć">${ic('x')}</button></div>`; }).join('')}</div>`;
+  const html = top + `<div class="ugrid">${DB.users.filter(u => !u.pending).sort((a, b) => (ROLES[b.role].rank - ROLES[a.role].rank) || a.name.localeCompare(b.name)).map((u, i) => {
     const g = groupById(u.groupId); const s = rotStatus(g, T);
     return `<div class="ucard anim ${u.active === false ? 'off' : ''}" style="--i:${Math.min(i, 12)}" data-act="go-user" data-id="${u.id}">
       <div class="row">${avatar(u, 1)}<div class="grow"><b>${esc(u.name)}</b><div class="muted small">@${esc(u.login)} · ${esc(u.phone || '')}</div></div><span class="role r-${u.role}">${ROLES[u.role].label}</span></div>
@@ -1228,10 +1351,25 @@ const ACT = {
   'profile': () => {
     modal('Moje konto', `<div class="row gap">${avatar(ME, 1)}<div><b>${esc(ME.name)}</b><div class="muted small">${ROLES[ME.role].label} · @${esc(ME.login)}</div></div></div>
       ${ME.id === REAL.id && !PREVIEW ? `<label>Nowe hasło<input name="pass" type="password" minlength="4" autocomplete="new-password"></label>` : '<p class="muted small">W trybie podglądu zmiana hasła jest wyłączona.</p>'}
-      <div class="row gap"><button type="button" class="btn ghost" data-act="go-user" data-id="${ME.id}">Mój profil</button>${!PREVIEW ? `<button type="button" class="btn danger" data-act="logout">${ic('logout')} Wyloguj</button>` : ''}</div>`,
+      <div class="row gap wrap"><button type="button" class="btn ghost" data-act="go-user" data-id="${ME.id}">Mój profil</button><button type="button" class="btn ghost" data-act="install-help">${ic('dl')} Dodaj do ekranu</button>${ME.id === REAL.id && !PREVIEW ? `<button type="button" class="btn ghost" data-act="new-recovery">${ic('key')} Nowy kod odzyskiwania</button>` : ''}${!PREVIEW ? `<button type="button" class="btn danger" data-act="logout">${ic('logout')} Wyloguj</button>` : ''}</div>`,
       ME.id === REAL.id && !PREVIEW ? { onSubmit: async fd => { const p = String(fd.get('pass') || ''); if (!p) return; if (p.length < 4) throw new Error('Min. 4 znaki'); REAL.pass = await sha(p); log('Zmieniono hasło'); save(); toast('Hasło zmienione'); }, submitLabel: 'Zmień hasło' } : {});
   },
   'logout': () => { closeModal(); logout(); },
+  'auth-tab': el => { AUTH_TAB = el.dataset.k; renderAuth(); },
+  'install-help': () => { closeMenu(); installHelp(); },
+  'install-tab': el => { $('#installBody').innerHTML = installHTML(el.dataset.k); },
+  'install-now': async () => { if (!DEFERRED_INSTALL) return; DEFERRED_INSTALL.prompt(); try { await DEFERRED_INSTALL.userChoice; } catch (_) { } DEFERRED_INSTALL = null; closeModal(); },
+  'install-hide': () => { localStorage.setItem('cc_install_hide', '1'); render(); },
+  'new-recovery': async () => { const code = genCode(); REAL.recovery = await sha(code); log('Wygenerowano nowy kod odzyskiwania'); save(); showRecoveryCode(code, false); },
+  'approve-user': el => { const u = userById(el.dataset.id); if (!u) return; const role = $('#role-' + u.id)?.value || 'pracownik'; u.pending = false; u.role = role; u.approvedBy = ME.id; log(`Zaakceptowano konto ${u.name} (${ROLES[role].label})`); save(); render(); toast(`${u.name} – konto aktywne`); },
+  'reject-user': el => { const u = userById(el.dataset.id); if (!u) return; confirmBox(`Odrzucić i usunąć konto ${u.name}?`, () => { DB.users = DB.users.filter(x => x.id !== u.id); log('Odrzucono konto ' + u.name); save(); render(); }, 'Odrzuć'); },
+  'admin-set-pass': el => {
+    const u = userById(el.dataset.id), reqId = el.dataset.req;
+    modal('Nowe hasło – ' + u.name, `<p class="muted small">Ustaw tymczasowe hasło i przekaż je pracownikowi (np. SMS-em). Może je potem zmienić w „Moje konto”.</p><label>Nowe hasło<input name="pass" type="text" minlength="4" required value="${genCode().slice(0, 5).toLowerCase()}"></label>`, {
+      submitLabel: 'Ustaw hasło', onSubmit: async fd => { const p = String(fd.get('pass')); if (p.length < 4) throw new Error('Min. 4 znaki'); u.pass = await sha(p); const r = DB.resetRequests.find(x => x.id === reqId); if (r) { r.status = 'done'; r.doneBy = ME.id; r.doneAt = Date.now(); } log('Ustawiono nowe hasło dla ' + u.name); save(); render(); toast('Hasło ustawione'); },
+    });
+  },
+  'reset-dismiss': el => { const r = DB.resetRequests.find(x => x.id === el.dataset.id); if (r) { r.status = 'dismissed'; save(); render(); } },
 
   /* podgląd ról */
   'view-as-role': el => {
@@ -1472,13 +1610,17 @@ const CHG = {
       await FS.clear().catch(() => { });
       for (const x of j.files || []) { const blob = await (await fetch(x.data)).blob(); await FS.put({ id: x.id, name: x.name, type: x.type, at: x.at, blob, size: blob.size }); }
       DB = j.db; const e = emptyDB(); for (const k in e) if (!DB[k]) DB[k] = e[k];
-      REAL = DB.users.find(u => u.id === REAL.id) || DB.users.find(u => u.role === 'admin'); ME = REAL;
-      log('Przywrócono kopię zapasową'); save(); render(); toast('Przywrócono kopię');
+      if (REAL) { REAL = DB.users.find(u => u.id === REAL.id) || DB.users.find(u => u.role === 'admin'); ME = REAL; log('Przywrócono kopię zapasową'); }
+      save(); if (!REAL) AUTH_TAB = 'login'; render(); toast(REAL ? 'Przywrócono kopię' : 'Kopia wczytana – zaloguj się swoim loginem i hasłem');
     } catch (err) { toast(err.message, 'err'); }
   },
 };
 const SUB = {
   'hours-add': f => addHours(readHours(new FormData(f))),
+  'auth-login': authLogin,
+  'auth-register': authRegister,
+  'auth-reset-code': authResetCode,
+  'auth-reset-request': authResetRequest,
 };
 
 /* ---------- menu mobilne ---------- */
@@ -1507,7 +1649,8 @@ document.addEventListener('input', e => {
 });
 document.addEventListener('submit', e => {
   const f = e.target; if (!f.dataset.sub) return; e.preventDefault();
-  try { SUB[f.dataset.sub](f); } catch (err) { toast(err.message || String(err), 'err'); }
+  const btn = f.querySelector('button[type=submit]'); if (btn) btn.disabled = true;
+  Promise.resolve().then(() => SUB[f.dataset.sub](f)).catch(err => toast(err.message || String(err), 'err')).finally(() => { if (btn && btn.isConnected) btn.disabled = false; });
 });
 document.addEventListener('keydown', e => {
   if (e.key !== 'Escape') return;
@@ -1549,10 +1692,11 @@ function boot() {
     REAL = DB.users.find(u => u.id === id && u.role === 'admin') || DB.users.find(u => u.role === 'admin');
     localStorage.setItem(SESSION_KEY, REAL.id);
   } else {
-    const id = localStorage.getItem(SESSION_KEY); REAL = DB.users.find(u => u.id === id && u.active !== false) || null;
+    const id = localStorage.getItem(SESSION_KEY); REAL = DB.users.find(u => u.id === id && u.active !== false && !u.pending) || null;
   }
   ME = REAL;
   const h = location.hash.slice(1); if (h && VIEWS[h] && h !== 'user') VIEW = h;
   render();
+  if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => { });
 }
 boot();
