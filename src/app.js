@@ -6,7 +6,7 @@
    ========================================================= */
 'use strict';
 
-const VERSION = '1.1.2';
+const VERSION = '1.1.3';
 const BUILD = '2026-10-18';
 const COMPANY = 'Slangeservice AS';
 const PREVIEW = !!window.CC_PREVIEW;
@@ -502,7 +502,7 @@ async function authLogin(f) {
   if (u.pending) throw new Error('Konto czeka na akceptację kierownika lub admina');
   if (u.active === false) throw new Error('Konto jest zablokowane – skontaktuj się z kierownikiem');
   REAL = ME = u; log('Zalogowano'); save();
-  localStorage.setItem(SESSION_KEY, REAL.id); AUTH_TAB = null; render();
+  localStorage.setItem(SESSION_KEY, REAL.id); AUTH_TAB = null; VIEW = 'dash'; ARG = null; render(); window.scrollTo(0, 0);
 }
 async function authRegister(f) {
   const fd = new FormData(f);
@@ -519,7 +519,7 @@ async function authRegister(f) {
   DB.users.push(u);
   DB.logs.unshift({ id: uid(), userId: u.id, action: first ? 'Utworzono konto administratora' : 'Założono konto (czeka na akceptację)', at: Date.now() });
   save();
-  if (first) { REAL = ME = u; localStorage.setItem(SESSION_KEY, u.id); AUTH_TAB = null; render(); showRecoveryCode(code, true); }
+  if (first) { REAL = ME = u; localStorage.setItem(SESSION_KEY, u.id); AUTH_TAB = null; VIEW = 'dash'; ARG = null; render(); window.scrollTo(0, 0); showRecoveryCode(code, true); }
   else { AUTH_TAB = 'login'; render(); toast('Konto założone – poczekaj na akceptację kierownika', 'info'); }
 }
 async function authResetCode(f) {
@@ -1698,8 +1698,11 @@ function boot() {
     const id = localStorage.getItem(SESSION_KEY); REAL = DB.users.find(u => u.id === id && u.active !== false && !u.pending) || null;
   }
   ME = REAL;
-  const h = location.hash.slice(1); if (h && VIEWS[h] && h !== 'user') VIEW = h;
-  render();
+  // start zawsze od Pulpitu, na górze strony (bez wracania do ostatniej zakładki)
+  VIEW = 'dash'; ARG = null;
+  try { history.scrollRestoration = 'manual'; } catch (_) { }
+  if (location.hash) history.replaceState(null, '', location.pathname + location.search);
+  render(); window.scrollTo(0, 0);
   if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => { });
 }
 boot();
