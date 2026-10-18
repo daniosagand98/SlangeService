@@ -6,7 +6,7 @@
    ========================================================= */
 'use strict';
 
-const VERSION = '1.1.3';
+const VERSION = '1.2.0';
 const BUILD = '2026-10-18';
 const COMPANY = 'Slangeservice AS';
 const PREVIEW = !!window.CC_PREVIEW;
@@ -213,7 +213,7 @@ function seed() {
     { name: 'VW Transporter', plate: 'EL 12345', seats: 6, odometer: 84210, fuel: 'diesel', euDate: addDays(T, 120), serviceKm: 90000 },
     { name: 'Toyota Hilux', plate: 'SV 98231', seats: 5, odometer: 132440, fuel: 'diesel', euDate: addDays(T, 20), serviceKm: 135000 },
     { name: 'Ford Transit', plate: 'BT 55120', seats: 3, odometer: 45100, fuel: 'diesel', euDate: addDays(T, 300), serviceKm: 60000 },
-  ].map(c => ({ id: uid(), ...c }));
+  ].map((c, i) => ({ id: uid(), ...c, houseId: houses[i].id }));
   const start1 = mondayOf(addDays(T, -10)), start2 = mondayOf(addDays(T, -30));
   const groups = [
     { id: uid(), name: 'Rotacja A', weeksIn: 3, weeksOut: 3, start: start1, color: '#ff7a1a' },
@@ -232,7 +232,7 @@ function seed() {
   ];
   const users = ppl.map(([name, login, role], i) => ({
     id: uid(), name, login, role, pass: '', phone: '+47 9' + (1000000 + i * 13579).toString().slice(0, 7), email: '',
-    houseId: i >= 3 ? houses[i % 3].id : (i === 1 ? houses[0].id : ''),
+    houseId: i >= 3 ? houses[i % 3].id : '',
     carId: i >= 3 && i < 9 ? cars[i % 3].id : '',
     groupId: i >= 2 ? groups[i % 2].id : '', active: true, createdAt: Date.now() - 864e5 * 40,
     lastSeen: Date.now() - (i * 3700000),
@@ -280,8 +280,12 @@ const nameOf = id => userById(id)?.name || '—';
 const houseById = id => DB.houses.find(h => h.id === id);
 const carById = id => DB.cars.find(c => c.id === id);
 const groupById = id => DB.groups.find(g => g.id === id);
+const carsOfHouse = hid => hid ? DB.cars.filter(c => c.houseId === hid) : [];
 const projById = id => DB.projects.find(p => p.id === id);
 const activeUsers = () => DB.users.filter(u => u.active !== false && !u.pending);
+// ekipa = ludzie, którzy pracują w godzinach (kierownik = właściciel/koordynator na stałej pensji – bez godzin, domów, rotacji)
+const crew = () => activeUsers().filter(u => u.role !== 'kierownik');
+const isBoss = (u = ME) => u?.role === 'kierownik';
 
 function touch() {
   if (!REAL) return;
@@ -342,8 +346,8 @@ const NAV = [
   { id: 'dash', icon: 'dash', label: 'Pulpit', min: 1 },
   { id: 'hours', icon: 'clock', label: 'Godziny pracy', min: 1 },
   { id: 'rota', icon: 'cal', label: 'Grafik i rotacje', min: 1 },
-  { id: 'houses', icon: 'house', label: 'Mapa domów', min: 1 },
-  { id: 'cars', icon: 'car', label: 'Auta', min: 1 },
+  { id: 'houses', icon: 'house', label: 'Mapa domów', min: 2 },
+  { id: 'cars', icon: 'car', label: 'Auta', min: 2 },
   { id: 'cards', icon: 'card', label: 'Karty paliwowe', min: 1 },
   { id: 'tickets', icon: 'plane', label: 'Bilety i dojazd', min: 1 },
   { id: 'docs', icon: 'file', label: 'Dokumenty', min: 1 },
@@ -594,15 +598,33 @@ VIEWS.dash = () => {
   const pend = pendingForMe();
   const house = houseById(ME.houseId), car = carById(ME.carId);
   const myCards = DB.fuelCards.filter(c => c.holderId === ME.id);
-  const tickets = DB.tickets.filter(t => t.groupId === ME.groupId && t.date >= T).sort((a, b) => a.date.localeCompare(b.date));
+  const boss = isBoss();
+  const tickets = DB.tickets.filter(t => (boss || t.groupId === ME.groupId || (t.userIds || []).includes(ME.id)) && t.date >= T).sort((a, b) => a.date.localeCompare(b.date));
   const msgs = myMessages().filter(m => m.fromId !== ME.id).sort((a, b) => b.createdAt - a.createdAt).slice(0, 3);
   const hr = new Date().getHours();
   const hello = hr < 5 ? 'Dobranoc' : hr < 12 ? 'Dzień dobry' : hr < 18 ? 'Cześć' : 'Dobry wieczór';
 
+  let heroSub, heroAct;
+  if (boss) {
+    const inNO = crew().filter(u => rotStatus(groupById(u.groupId), T) === 'NO');
+    const doneToday = inNO.filter(u => DB.hours.some(h => h.userId === u.id && h.date === T)).length;
+    heroSub = `W Norwegii dziś: <b>${inNO.length}</b> os. · godziny wpisane dziś: <b>${doneToday}</b> z ${inNO.length}`;
+    heroAct = `<button type="button" class="btn primary" data-act="hours-add-for">${ic('plus')} Dodaj godziny pracownikowi</button>`;
+  } else {
+    heroSub = st ? `Jesteś teraz: ${statusPill(st)} ${nc ? `· zmiana za <b>${nc.days}</b> dni (${fmtDate(nc.date)})` : ''}` : 'Nie masz jeszcze przypisanej rotacji.';
+    heroAct = todayH.length ? `<span class="pill ok">${ic('check')} Dziś wpisano ${fmtH(sumH(todayH))}</span>` : `<button type="button" class="btn primary" data-act="go" data-v="hours">${ic('plus')} Wpisz dzisiejsze godziny</button>`;
+  }
   let html = `<div class="hero anim">
     <div><div class="muted small">${fmtDate(T)}</div><h2>${hello}, ${esc(ME.name.split(' ')[0])} 👋</h2>
-    <div class="hero-sub">${st ? `Jesteś teraz: ${statusPill(st)} ${nc ? `· zmiana za <b>${nc.days}</b> dni (${fmtDate(nc.date)})` : ''}` : 'Nie masz jeszcze przypisanej rotacji.'}</div></div>
-    <div class="hero-act">${todayH.length ? `<span class="pill ok">${ic('check')} Dziś wpisano ${fmtH(sumH(todayH))}</span>` : `<button type="button" class="btn primary" data-act="go" data-v="hours">${ic('plus')} Wpisz dzisiejsze godziny</button>`}</div>
+    <div class="hero-sub">${heroSub}</div></div>
+    <div class="hero-act">${heroAct}</div>
+  </div>`;
+  if (can.manage()) html += `<div class="qa anim" style="--i:1">
+    <button type="button" class="qa-b" data-act="hours-add-for">${ic('clock')}<span>Godziny pracownika</span></button>
+    <button type="button" class="qa-b" data-act="group-edit">${ic('cal')}<span>Nowa rotacja</span></button>
+    <button type="button" class="qa-b" data-act="ticket-edit">${ic('plane')}<span>Wyślij bilety</span></button>
+    <button type="button" class="qa-b" data-act="user-edit">${ic('users')}<span>Dodaj pracownika</span></button>
+    <button type="button" class="qa-b" data-act="msg-new">${ic('send')}<span>Wiadomość</span></button>
   </div>`;
 
   if (!isStandalone() && PLATFORM !== 'desktop' && !localStorage.getItem('cc_install_hide')) html += `<div class="ibanner anim">${LOGO ? `<img src="${LOGO}" alt="">` : ''}<div class="grow"><b>Dodaj aplikację do ekranu telefonu</b><div class="muted small">Ikona Slangeservice, otwiera się jak zwykła aplikacja.</div></div><button type="button" class="btn sm primary" data-act="install-help">Pokaż jak</button><button type="button" class="ib sm" data-act="install-hide" aria-label="Ukryj">${ic('x')}</button></div>`;
@@ -610,7 +632,7 @@ VIEWS.dash = () => {
   if (pend.length) html += pend.map(t => { const c = DB.fuelCards.find(x => x.id === t.cardId); return `<div class="alert anim">${ic('card')}<div class="grow"><b>${esc(nameOf(t.fromId))}</b> przekazuje Ci kartę paliwową <b>${esc(c?.name)}</b> (•••• ${esc(c?.last4)}). Potwierdź, że ją dostałeś.</div><div class="row"><button type="button" class="btn ghost sm" data-act="card-reject" data-id="${t.id}">Odrzuć</button><button type="button" class="btn primary sm" data-act="card-accept" data-id="${t.id}">${ic('check')} Mam kartę</button></div></div>`; }).join('');
 
   if (can.manage()) {
-    const ws = activeUsers();
+    const ws = crew();
     const inNO = ws.filter(u => rotStatus(groupById(u.groupId), T) === 'NO').length;
     const beds = DB.houses.reduce((s, h) => s + (+h.beds || 0), 0), occ = ws.filter(u => houseById(u.houseId)).length;
     const teamH = sumH(DB.hours.filter(h => h.date.startsWith(M)));
@@ -636,13 +658,20 @@ VIEWS.dash = () => {
   } else {
     html += `<div class="stats">
       ${stat(`Moje godziny – ${MONTHS[+M.slice(5) - 1]}`, round2(myH), { icon: 'clock', go: 'hours', i: 1, suf: ' h' })}
-      ${stat('Mój dom', house ? esc(house.name) : '—', { icon: 'house', tone: 'green', go: 'houses', i: 2 })}
-      ${stat('Moje auto', car ? esc(car.name) : '—', { icon: 'car', tone: 'blue', go: 'cars', i: 3 })}
+      ${stat('Mój dom', house ? esc(house.name) : '—', { icon: 'house', tone: 'green', go: can.foreman() ? 'houses' : '', i: 2 })}
+      ${stat('Moje auto', car ? esc(car.name) : '—', { icon: 'car', tone: 'blue', go: can.foreman() ? 'cars' : '', i: 3 })}
       ${stat('Karta paliwowa', myCards.length ? esc(myCards.map(c => '•••• ' + c.last4).join(', ')) : 'nie mam', { icon: 'card', go: 'cards', i: 4 })}
     </div>`;
   }
+  if (!can.manage() && house) {
+    const mates = crew().filter(u => u.houseId === house.id && u.id !== ME.id), hc = carsOfHouse(house.id);
+    html += `<div class="card anim myhouse" style="--i:8"><div class="card-h"><div><h3>${ic('house')} Mój dom: ${esc(house.name)}</h3><div class="muted small">${ic('pin')} ${esc(house.address || '')}</div></div><span class="pill">${mates.length + 1}/${house.beds || '–'}</span></div>
+      <div><div class="lbl">Auta przy domu</div>${hc.length ? `<div class="hcars">${hc.map(c => { const drivers = crew().filter(u => u.carId === c.id); return `<div class="hcar">${ic('car')}<div class="grow"><b>${esc(c.name)}</b> <span class="plate sm">${esc(c.plate || '—')}</span><div class="muted small">${c.seats || '?'} miejsc · ${(+c.odometer || 0).toLocaleString('pl')} km${drivers.length ? ' · jeżdżą: ' + drivers.map(u => esc(u.name.split(' ')[0])).join(', ') : ''}</div></div>${c.id === ME.carId ? '<span class="pill ok">Twoje</span>' : ''}</div>`; }).join('')}</div>` : '<div class="muted small">Do tego domu nie ma jeszcze przypisanych aut.</div>'}</div>
+      ${mates.length ? `<div><div class="lbl">Mieszkasz z</div><div class="tags">${mates.map(u => `<span class="tag">${esc(u.name)}</span>`).join('')}</div></div>` : ''}
+    </div>`;
+  }
   html += `<div class="grid2">
-    <div class="card anim" style="--i:9"><div class="card-h"><h3>Moje bilety</h3><button type="button" class="btn sm ghost" data-act="go" data-v="tickets">Wszystkie</button></div>
+    <div class="card anim" style="--i:9"><div class="card-h"><h3>${boss ? 'Najbliższe bilety' : 'Moje bilety'}</h3><button type="button" class="btn sm ghost" data-act="go" data-v="tickets">Wszystkie</button></div>
       ${tickets.length ? tickets.slice(0, 2).map(ticketMini).join('') : empty('Brak nadchodzących biletów', 'plane')}</div>
     <div class="card anim" style="--i:10"><div class="card-h"><h3>Ostatnie wiadomości</h3><button type="button" class="btn sm ghost" data-act="go" data-v="msgs">Otwórz</button></div>
       ${msgs.length ? msgs.map(m => `<div class="li">${avatar(userById(m.fromId))}<div class="grow"><b>${esc(nameOf(m.fromId))}</b> <span class="muted small">${relTime(m.createdAt)}</span><div class="clamp">${esc(m.text)}</div></div></div>`).join('') : empty('Brak wiadomości', 'chat')}</div>
@@ -666,10 +695,10 @@ function splitRow(s = {}) {
 function hoursFormHTML(e = {}) {
   const splits = e.splits?.length ? e.splits : [{}];
   return `<div class="hform">
-    ${can.foreman() ? `<label>Pracownik<select name="userId">${activeUsers().map(u => opt(u.id, u.name, (e.userId || ME.id) === u.id)).join('')}</select></label>` : ''}
+    ${can.foreman() ? (() => { const sel = e.userId !== undefined ? e.userId : (isBoss() ? '' : ME.id); const pick = !sel || !crew().some(u => u.id === sel); return `<label>Pracownik<select name="userId" ${pick ? 'required' : ''}>${pick ? '<option value="">— wybierz pracownika —</option>' : ''}${crew().map(u => opt(u.id, u.name, sel === u.id)).join('')}</select></label>`; })() : ''}
     <div class="g3 tight"><label>Data<input type="date" name="date" value="${e.date || isoLocal()}" required></label>
       <label>Od<input type="time" name="from" value="${e.from || '07:00'}" required></label>
-      <label>Do<input type="time" name="to" value="${e.to || '15:30'}" required></label></div>
+      <label>Do<input type="time" name="to" value="${e.to || '18:00'}" required></label></div>
     <div class="totalbox"><span class="muted small">Czas pracy</span><b class="htot">0 h</b><span class="hbrk muted small"></span><span class="hrest small"></span></div>
     <div class="splits-h"><span>Ile godzin nad którym projektem</span><button type="button" class="btn sm ghost" data-act="add-split">${ic('plus')} projekt</button></div>
     <div class="splits">${splits.map(splitRow).join('')}</div>
@@ -698,7 +727,9 @@ function readHours(fd) {
   if (blank.length === 1 && tot - used > 0) splits.push({ projectId: blank[0].projectId, hours: round2(tot - used) });
   const sum = splits.reduce((s, x) => s + x.hours, 0);
   if (sum > tot + 0.01) throw new Error(`Suma projektów (${fmtH(sum)}) jest większa niż czas pracy (${fmtH(tot)})`);
-  return { date, from, to, breakMin, splits, note: String(fd.get('note') || '').trim(), userId: fd.get('userId') || ME.id };
+  const userId = fd.has('userId') ? fd.get('userId') : ME.id;
+  if (!userId) throw new Error('Wybierz pracownika');
+  return { date, from, to, breakMin, splits, note: String(fd.get('note') || '').trim(), userId };
 }
 function entryRow(x, showUser) {
   const canEdit = x.userId === ME.id || can.foreman();
@@ -713,8 +744,8 @@ function entryRow(x, showUser) {
 }
 function monthPicker() { return `<input type="month" class="mpick" value="${ST.month}" data-chg="month">`; }
 VIEWS.hours = () => {
-  const tabs = [['mine', 'Moje'], ...(can.foreman() ? [['team', 'Zespół'], ['proj', 'Projekty']] : [])];
-  if (!tabs.find(t => t[0] === ST.hoursTab)) ST.hoursTab = 'mine';
+  const tabs = [...(isBoss() ? [] : [['mine', 'Moje']]), ...(can.foreman() ? [['team', 'Zespół'], ['proj', 'Projekty']] : [])];
+  if (!tabs.find(t => t[0] === ST.hoursTab)) ST.hoursTab = tabs[0][0];
   let html = `<div class="tabs">${tabs.map(([k, l]) => `<button type="button" class="${ST.hoursTab === k ? 'on' : ''}" data-act="hours-tab" data-k="${k}">${l}</button>`).join('')}<span class="grow"></span>${monthPicker()}</div>`;
   const M = ST.month;
   if (ST.hoursTab === 'mine') {
@@ -730,9 +761,10 @@ VIEWS.hours = () => {
       <div class="card anim" style="--i:2"><div class="card-h"><h3>Wpisy</h3></div>${list.length ? list.map(x => entryRow(x)).join('') : empty('Brak wpisów w tym miesiącu', 'clock')}</div>`;
   } else if (ST.hoursTab === 'team') {
     const list = DB.hours.filter(h => h.date.startsWith(M));
-    const rows = activeUsers().map(u => { const l = list.filter(h => h.userId === u.id); const byP = {}; l.forEach(x => (x.splits || []).forEach(s => byP[s.projectId] = (byP[s.projectId] || 0) + s.hours)); return { u, tot: sumH(l), days: new Set(l.map(x => x.date)).size, byP }; }).sort((a, b) => b.tot - a.tot);
+    const rows = crew().map(u => { const l = list.filter(h => h.userId === u.id); const byP = {}; l.forEach(x => (x.splits || []).forEach(s => byP[s.projectId] = (byP[s.projectId] || 0) + s.hours)); return { u, tot: sumH(l), days: new Set(l.map(x => x.date)).size, byP }; }).sort((a, b) => b.tot - a.tot);
     const max = Math.max(1, ...rows.map(r => r.tot));
-    html += `<div class="row wrap gap"><button type="button" class="btn primary" data-act="hours-add-for">${ic('plus')} Wpisz godziny za pracownika</button><button type="button" class="btn ghost" data-act="export-hours">${ic('dl')} Eksport CSV (${fmtMonth(M)})</button></div>
+    if (isBoss()) html += `<form class="card anim" data-sub="hours-add"><div class="card-h"><h3>Dodaj godziny dla pracownika</h3></div>${hoursFormHTML({})}<button class="btn primary block" type="submit">${ic('check')} Zapisz godziny</button></form>`;
+    html += `<div class="row wrap gap">${isBoss() ? '' : `<button type="button" class="btn primary" data-act="hours-add-for">${ic('plus')} Dodaj godziny pracownikowi</button>`}<button type="button" class="btn ghost" data-act="export-hours">${ic('dl')} Eksport CSV (${fmtMonth(M)})</button></div>
     <div class="card anim"><div class="card-h"><h3>Godziny zespołu – ${fmtMonth(M)}</h3><span class="pill">${fmtH(sumH(list))}</span></div>
     ${rows.map((r, i) => `<div class="trow anim" style="--i:${i}" data-act="user-hours" data-id="${r.u.id}">
       ${avatar(r.u)}<div class="grow"><div class="row"><b>${esc(r.u.name)}</b><span class="muted small">${r.days} dni</span><span class="grow"></span><b>${fmtH(r.tot)}</b></div>
@@ -747,7 +779,7 @@ VIEWS.hours = () => {
       ${Object.entries(per).sort((a, b) => b[1] - a[1]).map(([u, h]) => `<div class="li sm">${avatar(userById(u))}<span class="grow">${esc(nameOf(u))}</span><b>${fmtH(h)}</b></div>`).join('') || '<div class="muted small">Brak godzin w tym miesiącu</div>'}</div>`;
     }).join('') || empty('Brak projektów')}</div>`;
   }
-  return { title: 'Godziny pracy', sub: 'Od której do której + podział na projekty', html };
+  return { title: isBoss() ? 'Godziny pracowników' : 'Godziny pracy', sub: isBoss() ? 'Kontrola godzin zespołu i projektów' : 'Od której do której + podział na projekty', html };
 };
 function projBars(byP, tot) {
   const e = Object.entries(byP).sort((a, b) => b[1] - a[1]);
@@ -758,22 +790,24 @@ function projBars(byP, tot) {
 /* ----- GRAFIK / ROTACJE ----- */
 VIEWS.rota = () => {
   const T = isoLocal(); const g = groupById(ME.groupId); const st = rotStatus(g, T); const nc = nextChange(g, T);
-  let html = `<div class="card hero2 anim ${st === 'NO' ? 'no' : st === 'PL' ? 'pl' : ''}">
+  const personal = !can.manage() || !!g;
+  let html = '';
+  if (can.manage()) {
+    html += `<div class="card anim"><div class="card-h"><h3>Grupy rotacyjne</h3><button type="button" class="btn sm primary" data-act="group-edit">${ic('plus')} Nowa rotacja</button></div>
+      <p class="muted small">Utwórz grupę (np. „Rotacja A – 3/3”), ustaw tygodnie w Norwegii i w Polsce oraz pierwszy dzień w Norwegii. Potem przeciągnij pracowników do grupy (albo dotknij osobę, a potem grupę).</p>
+      ${DB.groups.length ? board('group', DB.groups.map(gr => { const s = rotStatus(gr, T), n = nextChange(gr, T); return { id: gr.id, title: gr.name, color: gr.color, sub: `${gr.weeksIn}/${gr.weeksOut} tyg. · teraz ${s === 'NO' ? 'NO' : 'PL'}${n ? ` · zmiana ${fmtDate(n.date)}` : ''}`, edit: 'group-edit' }; }), true) : `<button type="button" class="empty-add" data-act="group-edit">${ic('plus')}<span>Utwórz pierwszą rotację</span></button>`}
+    </div>`;
+  }
+  if (personal) html += `<div class="card hero2 anim ${st === 'NO' ? 'no' : st === 'PL' ? 'pl' : ''}">
     <div class="h2-l"><div class="muted small">Twój status dziś</div><div class="h2-big">${st === 'NO' ? 'Jesteś w Norwegii' : st === 'PL' ? 'Jesteś w Polsce' : 'Brak rotacji'}</div>
     <div class="muted">${g ? `${esc(g.name)} · ${g.weeksIn} tyg. NO / ${g.weeksOut} tyg. PL` : 'Kierownik jeszcze nie przypisał Cię do rotacji.'}</div></div>
     ${nc ? `<div class="h2-r"><div class="ring" style="--p:${Math.max(4, 100 - nc.days / ((st === 'NO' ? g.weeksIn : g.weeksOut) * 7) * 100)}"><div><b class="count" data-to="${nc.days}">0</b><span>dni</span></div></div><div class="small muted center">${nc.to === 'PL' ? 'do wyjazdu do Polski' : 'do przyjazdu do Norwegii'}<br>${fmtDate(nc.date)}</div></div>` : ''}
   </div>`;
-  if (g) html += `<div class="card anim" style="--i:1"><div class="card-h"><h3>Mój kalendarz (${ST.rotaWeeks} tygodni)</h3></div>${myCalendar(g)}</div>`;
-  if (can.manage()) {
-    html += `<div class="card anim" style="--i:2"><div class="card-h"><h3>Grupy rotacyjne</h3><button type="button" class="btn sm primary" data-act="group-edit">${ic('plus')} Grupa</button></div>
-      <p class="muted small">Przeciągnij pracownika do grupy (lub dotknij osobę, a potem grupę). Rotację ustawiasz w edycji grupy.</p>
-      ${board('group', DB.groups.map(gr => { const s = rotStatus(gr, T), n = nextChange(gr, T); return { id: gr.id, title: gr.name, color: gr.color, sub: `${gr.weeksIn}/${gr.weeksOut} tyg. · teraz ${s === 'NO' ? 'NO' : 'PL'}${n ? ` · zmiana ${fmtDate(n.date)}` : ''}`, edit: 'group-edit' }; }), true)}
-    </div>`;
-  }
+  if (g && personal) html += `<div class="card anim" style="--i:1"><div class="card-h"><h3>Mój kalendarz (${ST.rotaWeeks} tygodni)</h3></div>${myCalendar(g)}</div>`;
   if (can.foreman()) {
     html += `<div class="card anim" style="--i:3"><div class="card-h"><h3>Plan rotacji – kto gdzie</h3><select data-chg="rota-weeks" class="mini">${[8, 12, 16, 26].map(w => opt(w, w + ' tyg.', w === ST.rotaWeeks)).join('')}</select></div>${teamTimeline()}</div>`;
   }
-  return { title: 'Grafik i rotacje', sub: 'Kiedy kto jest w Norwegii, a kiedy w Polsce', html };
+  return { title: 'Grafik i rotacje', sub: 'Kiedy kto jest w Norwegii, a kiedy w Polsce', html, action: can.manage() ? `<button type="button" class="btn primary" data-act="group-edit">${ic('plus')}<span class="hide-s"> Nowa rotacja</span></button>` : '' };
 };
 function myCalendar(g) {
   const start = mondayOf(isoLocal()); const T = isoLocal(); let out = '<div class="cal"><div class="cal-h">' + ['pn', 'wt', 'śr', 'cz', 'pt', 'sb', 'nd'].map(d => `<span>${d}</span>`).join('') + '</div>';
@@ -786,7 +820,7 @@ function myCalendar(g) {
 }
 function teamTimeline() {
   const start = mondayOf(isoLocal()); const weeks = [...Array(ST.rotaWeeks)].map((_, i) => addDays(start, i * 7));
-  const ws = activeUsers().sort((a, b) => (groupById(a.groupId)?.name || 'zz').localeCompare(groupById(b.groupId)?.name || 'zz') || a.name.localeCompare(b.name));
+  const ws = crew().sort((a, b) => (groupById(a.groupId)?.name || 'zz').localeCompare(groupById(b.groupId)?.name || 'zz') || a.name.localeCompare(b.name));
   return `<div class="tl-wrap"><table class="tl"><thead><tr><th>Pracownik</th>${weeks.map(w => `<th>t${isoWeek(w)}<br><span>${w.slice(8)}.${w.slice(5, 7)}</span></th>`).join('')}</tr></thead><tbody>
   ${ws.map(u => { const g = groupById(u.groupId); return `<tr><td><div class="tl-n">${avatar(u)}<div><b>${esc(u.name)}</b><div class="muted small">${g ? esc(g.name) : 'brak'}</div></div></div></td>${weeks.map(w => { const s = rotStatus(g, addDays(w, 3)); const s0 = rotStatus(g, w), s6 = rotStatus(g, addDays(w, 6)); return `<td><span class="tc ${s ? s.toLowerCase() : 'none'} ${s0 !== s6 ? 'chg' : ''}">${s || ''}</span></td>`; }).join('')}</tr>`; }).join('')}
   </tbody></table></div>`;
@@ -795,7 +829,7 @@ function teamTimeline() {
 /* ----- TABLICA (domy / auta / grupy) ----- */
 function board(kind, containers, editable) {
   const field = { house: 'houseId', car: 'carId', group: 'groupId' }[kind];
-  const ws = activeUsers();
+  const ws = crew();
   const ids = new Set(containers.map(c => c.id));
   const un = ws.filter(u => !ids.has(u[field]));
   const chip = u => personChip(u, kind, { editable });
@@ -816,8 +850,8 @@ function assign(kind, userId, targetId) {
   const field = { house: 'houseId', car: 'carId', group: 'groupId' }[kind];
   const u = userById(userId); if (!u) return;
   if (u[field] === targetId) { SELECTED = null; return render(); }
-  if (targetId && kind === 'house') { const h = houseById(targetId); const n = activeUsers().filter(x => x.houseId === targetId).length; if (h.beds && n >= h.beds) { SELECTED = null; render(); return toast(`${h.name} jest pełny (${n}/${h.beds})`, 'err'); } }
-  if (targetId && kind === 'car') { const c = carById(targetId); const n = activeUsers().filter(x => x.carId === targetId).length; if (c.seats && n >= c.seats) { SELECTED = null; render(); return toast(`${c.name} – brak wolnych miejsc (${n}/${c.seats})`, 'err'); } }
+  if (targetId && kind === 'house') { const h = houseById(targetId); const n = crew().filter(x => x.houseId === targetId).length; if (h.beds && n >= h.beds) { SELECTED = null; render(); return toast(`${h.name} jest pełny (${n}/${h.beds})`, 'err'); } }
+  if (targetId && kind === 'car') { const c = carById(targetId); const n = crew().filter(x => x.carId === targetId).length; if (c.seats && n >= c.seats) { SELECTED = null; render(); return toast(`${c.name} – brak wolnych miejsc (${n}/${c.seats})`, 'err'); } }
   u[field] = targetId || '';
   LAST_ASSIGNED = u.id;
   const tName = targetId ? (kind === 'house' ? houseById(targetId)?.name : kind === 'car' ? carById(targetId)?.name : groupById(targetId)?.name) : '—';
@@ -834,7 +868,7 @@ let LAST_ASSIGNED = null;
 let SUPPRESS_CLICK_UNTIL = 0;
 const G_CFG = {
   house: { field: 'houseId', items: () => DB.houses, cap: h => +h.beds || 0, sub: h => h.address || 'brak adresu', hubT: COMPANY, hubS: (n, u, c) => `${n} domów · ${u}/${c} miejsc zajętych`, none: 'Bez domu', unit: 'dom', edit: 'house-edit', icon: 'house', pin: 'pin' },
-  car: { field: 'carId', items: () => DB.cars, cap: c => +c.seats || 0, sub: c => `${c.plate || '—'} · ${(+c.odometer || 0).toLocaleString('pl')} km`, hubT: 'Flota aut', hubS: (n, u, c) => `${n} aut · ${u}/${c} miejsc zajętych`, none: 'Bez auta', unit: 'auto', edit: 'car-edit', icon: 'car', pin: 'car' },
+  car: { field: 'carId', items: () => DB.cars, cap: c => +c.seats || 0, sub: c => `${c.plate || '—'} · ${houseById(c.houseId)?.name || 'bez domu'}`, hubT: 'Flota aut', hubS: (n, u, c) => `${n} aut · ${u}/${c} miejsc zajętych`, none: 'Bez auta', unit: 'auto', edit: 'car-edit', icon: 'car', pin: 'car' },
 };
 function layoutOf(kind) {
   DB.layout = DB.layout || {};
@@ -847,7 +881,7 @@ function personChip(u, kind, opts = {}) {
   return `<div class="chip ${sel ? 'sel' : ''} ${u.id === ME.id ? 'me' : ''} ${LAST_ASSIGNED === u.id ? 'pop' : ''}" ${opts.editable ? `data-drag="${u.id}" data-kind="${kind}" data-act="pick"` : ''} data-name="${esc(u.name.toLowerCase())}">${avatar(u)}<span class="cn">${esc(u.name)}</span>${opts.where ? `<span class="cw">${esc(opts.where)}</span>` : ''}</div>`;
 }
 function graphHTML(kind) {
-  const C = G_CFG[kind], ed = can.manage(), ws = activeUsers(), items = C.items(), o = GOPT[kind];
+  const C = G_CFG[kind], ed = can.manage(), ws = crew(), items = C.items(), o = GOPT[kind];
   const ids = new Set(items.map(i => i.id));
   const totalCap = items.reduce((s, i) => s + C.cap(i), 0);
   const used = ws.filter(u => ids.has(u[C.field])).length;
@@ -866,6 +900,7 @@ function graphHTML(kind) {
       <div class="gn-sub">${ic(C.pin)}<span>${esc(C.sub(it))}</span></div>
       ${cap ? `<div class="bar ${full ? 'full' : ''}"><i style="--w:${Math.min(100, mem.length / cap * 100)}%"></i></div>` : ''}
       <div class="gn-ppl">${mem.map(u => personChip(u, kind, { editable: ed })).join('')}${[...Array(Math.min(free, 8))].map(() => '<span class="slot">wolne miejsce</span>').join('')}${free > 8 ? `<span class="slot">+${free - 8} wolnych</span>` : ''}</div>
+      ${kind === 'house' && (carsOfHouse(it.id).length || ed) ? `<div class="gn-cars">${carsOfHouse(it.id).map(c => `<span class="carchip">${ic('car')}<b>${esc(c.name)}</b><span class="plate sm">${esc(c.plate || '—')}</span></span>`).join('')}${ed ? `<button type="button" class="carchip add" data-act="house-edit" data-id="${it.id}">${ic('plus')}${carsOfHouse(it.id).length ? 'auto' : 'przypisz auto'}</button>` : ''}</div>` : ''}
     </div>`;
   };
   const mode = layoutOf(kind).mode || '';
@@ -1068,7 +1103,7 @@ function chipDragEnd(drop) {
 /* ----- DOMY ----- */
 VIEWS.houses = () => {
   const ed = can.manage();
-  const ws = activeUsers(); const beds = DB.houses.reduce((s, h) => s + (+h.beds || 0), 0); const occ = ws.filter(u => houseById(u.houseId)).length;
+  const ws = crew(); const beds = DB.houses.reduce((s, h) => s + (+h.beds || 0), 0); const occ = ws.filter(u => houseById(u.houseId)).length;
   const html = `<div class="stats s3">${stat('Domy', DB.houses.length, { icon: 'house' })}${stat('Zajęte miejsca', occ, { icon: 'users', tone: 'green', i: 1 })}${stat('Wolne miejsca', Math.max(0, beds - occ), { icon: 'check', tone: 'blue', i: 2 })}</div>
     ${graphHTML('house')}`;
   return { title: 'Mapa domów', sub: ed ? 'Każdy dom to kafelek – przeciągaj ludzi z listy' : 'Kto gdzie mieszka', html, action: ed ? `<button type="button" class="btn primary" data-act="house-edit">${ic('plus')}<span class="hide-s"> Dom</span></button>` : '' };
@@ -1086,10 +1121,10 @@ VIEWS.cars = () => {
   let html = '';
   html += graphHTML('car');
   html += `<h2 class="sec-t">Szczegóły aut</h2><div class="cgrid">${DB.cars.map((c, i) => {
-    const s = carStats(c); const users = activeUsers().filter(u => u.carId === c.id);
+    const s = carStats(c); const users = crew().filter(u => u.carId === c.id);
     return `<div class="card car anim ${ME.carId === c.id ? 'mine' : ''}" style="--i:${i}">
       <div class="card-h"><div><h3>${esc(c.name)}</h3><span class="plate">${esc(c.plate || '—')}</span></div>${ed ? `<button type="button" class="ib" data-act="car-edit" data-id="${c.id}">${ic('edit')}</button>` : ''}</div>
-      <div class="kv"><div><span>Przebieg</span><b>${(+c.odometer || 0).toLocaleString('pl')} km</b></div><div><span>Spalanie</span><b>${s.cons ? fmtNum(s.cons) + ' l/100' : '—'}</b></div>
+      <div class="kv"><div><span>Dom</span><b>${esc(houseById(c.houseId)?.name || '—')}</b></div><div><span>Przebieg</span><b>${(+c.odometer || 0).toLocaleString('pl')} km</b></div><div><span>Spalanie</span><b>${s.cons ? fmtNum(s.cons) + ' l/100' : '—'}</b></div>
       <div><span>Ten miesiąc</span><b>${fmtNum(s.monthL)} l · ${Math.round(s.monthNOK).toLocaleString('pl')} kr</b></div><div><span>EU-kontroll</span><b>${c.euDate ? fmtDate(c.euDate) : '—'}</b></div></div>
       <div class="tags">${users.map(u => `<span class="tag">${esc(u.name)}</span>`).join('') || '<span class="muted small">Nikt nie przypisany</span>'}</div>
       <div class="row gap"><button type="button" class="btn sm primary" data-act="refuel-add" data-id="${c.id}">${ic('fuel')} Tankowanie</button><button type="button" class="btn sm ghost" data-act="car-history" data-id="${c.id}">Historia (${s.refuels.length})</button><button type="button" class="btn sm ghost" data-act="odo" data-id="${c.id}">Licznik</button></div>
@@ -1138,7 +1173,7 @@ VIEWS.tickets = () => {
   let html = `<div class="tabs"><button type="button" class="${ST.ticketFilter === 'upcoming' ? 'on' : ''}" data-act="ticket-filter" data-k="upcoming">Nadchodzące</button><button type="button" class="${ST.ticketFilter === 'past' ? 'on' : ''}" data-act="ticket-filter" data-k="past">Archiwum</button></div>`;
   html += list.map((t, i) => {
     const g = groupById(t.groupId); const ap = AIRPORTS[t.airportNO];
-    const people = activeUsers().filter(u => u.groupId === t.groupId || (t.userIds || []).includes(u.id));
+    const people = crew().filter(u => u.groupId === t.groupId || (t.userIds || []).includes(u.id));
     const days = Math.round((new Date(t.date + 'T12:00') - new Date(T + 'T12:00')) / 864e5);
     return `<div class="ticket anim" style="--i:${i}">
       <div class="tk-l">
@@ -1228,8 +1263,8 @@ VIEWS.msgs = () => {
   let changed = false; list.forEach(m => { m.readBy = m.readBy || []; if (m.fromId !== ME.id && !m.readBy.includes(ME.id)) { m.readBy.push(ME.id); m._new = true; changed = true; } });
   if (changed) save();
   const to = m => m.toType === 'all' ? 'Wszyscy' : m.toType === 'group' ? (groupById(m.toId)?.name || 'grupa') : nameOf(m.toId);
-  const html = `<div class="msgs">${list.map((m, i) => { const mine = m.fromId === ME.id; const r = `<div class="msg anim ${mine ? 'mine' : ''} ${m._new ? 'new' : ''}" style="--i:${Math.min(i, 8)}">${mine ? '' : avatar(userById(m.fromId))}<div class="bubble"><div class="m-meta"><b>${mine ? 'Ty' : esc(nameOf(m.fromId))}</b> → ${esc(to(m))} · ${relTime(m.createdAt)}</div><div class="m-text">${esc(m.text).replace(/\n/g, '<br>')}</div>${!mine ? `<button type="button" class="link small" data-act="msg-reply" data-id="${m.fromId}">Odpowiedz</button>` : `<span class="muted small">przeczytało: ${(m.readBy || []).length}</span>`}</div></div>`; delete m._new; return r; }).join('') || empty('Brak wiadomości', 'chat')}</div>`;
-  return { title: 'Wiadomości', sub: can.foreman() ? 'Do osoby, rotacji lub wszystkich' : 'Wiadomości od kierownictwa', html, action: `<button type="button" class="btn primary" data-act="msg-new">${ic('send')}<span class="hide-s"> Napisz</span></button>` };
+  const html = `<div class="msgs">${list.map((m, i) => { const mine = m.fromId === ME.id; const r = `<div class="msg anim ${mine ? 'mine' : ''} ${m._new ? 'new' : ''}" style="--i:${Math.min(i, 8)}">${mine ? '' : avatar(userById(m.fromId))}<div class="bubble"><div class="m-meta"><b>${mine ? 'Ty' : esc(nameOf(m.fromId))}</b> → ${esc(to(m))} · ${relTime(m.createdAt)}</div><div class="m-text">${esc(m.text).replace(/\n/g, '<br>')}</div>${!mine ? `${can.foreman() ? `<button type="button" class="link small" data-act="msg-reply" data-id="${m.fromId}">Odpowiedz</button>` : ''}` : `<span class="muted small">przeczytało: ${(m.readBy || []).length}</span>`}</div></div>`; delete m._new; return r; }).join('') || empty('Brak wiadomości', 'chat')}</div>`;
+  return { title: 'Wiadomości', sub: can.foreman() ? 'Do osoby, rotacji lub wszystkich' : 'Wiadomości od kierownictwa', html, action: can.foreman() ? `<button type="button" class="btn primary" data-act="msg-new">${ic('send')}<span class="hide-s"> Napisz</span></button>` : '' };
 };
 
 /* ----- PROJEKTY ----- */
@@ -1407,7 +1442,7 @@ const ACT = {
     }); updHoursTotal($('#mform .hform'));
   },
   'del-hours': el => { const i = DB.hours.findIndex(h => h.id === el.dataset.id); if (i < 0) return; const x = DB.hours[i]; DB.hours.splice(i, 1); log(`Usunięto godziny ${nameOf(x.userId)} ${x.date}`); save(); closeModal(); render(); toast('Usunięto'); },
-  'hours-add-for': () => { modal('Wpisz godziny', hoursFormHTML({}), { onSubmit: fd => addHours(readHours(fd)) }); updHoursTotal($('#mform .hform')); },
+  'hours-add-for': () => { modal('Dodaj godziny pracownikowi', hoursFormHTML({ userId: '' }), { onSubmit: fd => addHours(readHours(fd)) }); updHoursTotal($('#mform .hform')); },
   'user-hours': el => { go('user', el.dataset.id); },
   'export-hours': () => {
     const M = ST.month; const rows = [['Data', 'Pracownik', 'Od', 'Do', 'Przerwa min', 'Godziny', 'Projekt', 'Godziny projekt', 'Notatka']];
@@ -1436,20 +1471,29 @@ const ACT = {
   /* domy */
   'house-edit': el => {
     const h = houseById(el.dataset.id) || {};
-    modal(h.id ? 'Edytuj dom' : 'Nowy dom', `<label>Nazwa<input name="name" value="${esc(h.name || '')}" required></label><label>Adres (do planowania dojazdu)<input name="address" value="${esc(h.address || '')}" placeholder="np. Herøysund, Kvinnherad"></label><label>Ilość miejsc (łóżek)<input type="number" name="beds" min="1" value="${h.beds || 4}" required></label>`, {
-      onSubmit: fd => { const d = { name: fd.get('name'), address: fd.get('address'), beds: +fd.get('beds') }; if (h.id) { if (h.address !== d.address) { delete h.lat; delete h.lon; } Object.assign(h, d); } else DB.houses.push({ id: uid(), ...d }); log('Zapisano dom ' + d.name); save(); render(); toast('Zapisano'); },
+    modal(h.id ? 'Edytuj dom' : 'Nowy dom', `<label>Nazwa<input name="name" value="${esc(h.name || '')}" required></label><label>Adres (do planowania dojazdu)<input name="address" value="${esc(h.address || '')}" placeholder="np. Herøysund, Kvinnherad"></label><label>Ilość miejsc (łóżek)<input type="number" name="beds" min="1" value="${h.beds || 4}" required></label>
+      <div><div class="lbl">Auta przy tym domu</div>${DB.cars.length ? `<div class="checks">${DB.cars.map(c => { const other = c.houseId && c.houseId !== h.id ? houseById(c.houseId) : null; return `<label class="check carcheck"><input type="checkbox" name="cars" value="${c.id}" ${h.id && c.houseId === h.id ? 'checked' : ''}><span class="grow"><b>${esc(c.name)}</b> <span class="plate sm">${esc(c.plate || '—')}</span>${other ? `<span class="muted small"> · teraz: ${esc(other.name)}</span>` : ''}</span></label>`; }).join('')}</div>` : '<div class="muted small">Nie ma jeszcze aut – dodaj je w zakładce Auta.</div>'}</div>`, {
+      onSubmit: fd => {
+        const d = { name: fd.get('name'), address: fd.get('address'), beds: +fd.get('beds') };
+        let hid = h.id;
+        if (h.id) { if (h.address !== d.address) { delete h.lat; delete h.lon; } Object.assign(h, d); } else { hid = uid(); DB.houses.push({ id: hid, ...d }); }
+        const sel = fd.getAll('cars');
+        DB.cars.forEach(c => { if (sel.includes(c.id)) { if (c.houseId !== hid) log(`Auto ${c.name} → dom ${d.name}`); c.houseId = hid; } else if (c.houseId === hid) c.houseId = ''; });
+        log('Zapisano dom ' + d.name); save(); render(); toast('Zapisano');
+      },
       danger: h.id ? { act: 'house-del', id: h.id } : null,
     });
   },
-  'house-del': el => { const h = houseById(el.dataset.id); DB.users.forEach(u => { if (u.houseId === h.id) u.houseId = ''; }); DB.houses = DB.houses.filter(x => x.id !== h.id); log('Usunięto dom ' + h.name); save(); closeModal(); render(); },
+  'house-del': el => { const h = houseById(el.dataset.id); DB.users.forEach(u => { if (u.houseId === h.id) u.houseId = ''; }); DB.cars.forEach(c => { if (c.houseId === h.id) c.houseId = ''; }); DB.houses = DB.houses.filter(x => x.id !== h.id); log('Usunięto dom ' + h.name); save(); closeModal(); render(); },
 
   /* auta */
   'car-edit': el => {
     const c = carById(el.dataset.id) || {};
     modal(c.id ? 'Edytuj auto' : 'Nowe auto', `<div class="g2"><label>Nazwa / model<input name="name" value="${esc(c.name || '')}" required></label><label>Rejestracja<input name="plate" value="${esc(c.plate || '')}"></label></div>
       <div class="g3 tight"><label>Miejsca<input type="number" name="seats" min="1" value="${c.seats || 5}"></label><label>Przebieg (km)<input type="number" name="odometer" min="0" value="${c.odometer || 0}"></label><label>Paliwo<select name="fuel">${['diesel', 'benzyna', 'elektryk', 'hybryda'].map(f => opt(f, f, f === (c.fuel || 'diesel'))).join('')}</select></label></div>
+      <label>Dom (przy którym domu stoi auto)<select name="houseId"><option value="">— bez domu —</option>${DB.houses.map(h => opt(h.id, h.name, h.id === c.houseId)).join('')}</select></label>
       <div class="g2"><label>EU-kontroll<input type="date" name="euDate" value="${c.euDate || ''}"></label><label>Serwis przy (km)<input type="number" name="serviceKm" min="0" value="${c.serviceKm || ''}"></label></div>`, {
-      onSubmit: fd => { const d = { name: fd.get('name'), plate: fd.get('plate'), seats: +fd.get('seats'), odometer: +fd.get('odometer'), fuel: fd.get('fuel'), euDate: fd.get('euDate'), serviceKm: +fd.get('serviceKm') || 0 }; if (c.id) Object.assign(c, d); else DB.cars.push({ id: uid(), ...d }); log('Zapisano auto ' + d.name); save(); render(); toast('Zapisano'); },
+      onSubmit: fd => { const d = { name: fd.get('name'), plate: fd.get('plate'), seats: +fd.get('seats'), odometer: +fd.get('odometer'), fuel: fd.get('fuel'), euDate: fd.get('euDate'), serviceKm: +fd.get('serviceKm') || 0, houseId: fd.get('houseId') || '' }; if (c.id) Object.assign(c, d); else DB.cars.push({ id: uid(), ...d }); log('Zapisano auto ' + d.name); save(); render(); toast('Zapisano'); },
       danger: c.id ? { act: 'car-del', id: c.id } : null,
     });
   },
@@ -1507,9 +1551,9 @@ const ACT = {
   'ticket-edit': el => {
     const t = DB.tickets.find(x => x.id === el.dataset.id) || {};
     modal(t.id ? 'Edytuj bilety' : 'Wyślij bilety do grupy', `
-      <div class="g2"><label>Grupa rotacyjna<select name="groupId">${DB.groups.map(g => opt(g.id, `${g.name} (${activeUsers().filter(u => u.groupId === g.id).length} os.)`, g.id === t.groupId)).join('')}<option value="" ${t.id && !t.groupId ? 'selected' : ''}>— tylko wybrane osoby —</option></select></label>
+      <div class="g2"><label>Grupa rotacyjna<select name="groupId">${DB.groups.map(g => opt(g.id, `${g.name} (${crew().filter(u => u.groupId === g.id).length} os.)`, g.id === t.groupId)).join('')}<option value="" ${t.id && !t.groupId ? 'selected' : ''}>— tylko wybrane osoby —</option></select></label>
       <label>Kierunek<select name="direction">${opt('PL', 'Wyjazd do Polski', t.direction !== 'NO')}${opt('NO', 'Przyjazd do Norwegii', t.direction === 'NO')}</select></label></div>
-      <label>Dodatkowe osoby (opcjonalnie)<select name="userIds" multiple size="4">${activeUsers().map(u => opt(u.id, u.name, (t.userIds || []).includes(u.id))).join('')}</select></label>
+      <label>Dodatkowe osoby (opcjonalnie)<select name="userIds" multiple size="4">${crew().map(u => opt(u.id, u.name, (t.userIds || []).includes(u.id))).join('')}</select></label>
       <div class="g3 tight"><label>Data lotu<input type="date" name="date" value="${t.date || ''}" required></label><label>Wylot<input type="time" name="depTime" value="${t.depTime || ''}" required></label><label>Przylot<input type="time" name="arrTime" value="${t.arrTime || ''}"></label></div>
       <div class="g3"><label>Nr lotu<input name="flightNo" value="${esc(t.flightNo || '')}" placeholder="DY1052"></label>
       <label>Lotnisko w Norwegii<select name="airportNO">${Object.entries(AIRPORTS).map(([k, a]) => opt(k, a.name, k === (t.airportNO || 'BGO'))).join('')}</select></label>
@@ -1555,8 +1599,8 @@ const ACT = {
   'doc-del': el => { const d = DB.docs.find(x => x.id === el.dataset.id); confirmBox(`Usunąć „${d.name}”?`, async () => { if (d.fileId) await FS.del(d.fileId).catch(() => { }); DB.docs = DB.docs.filter(x => x.id !== d.id); log('Usunięto dokument ' + d.name); save(); render(); }, 'Usuń'); },
 
   /* wiadomości */
-  'msg-new': el => msgModal(),
-  'msg-reply': el => msgModal('user', el.dataset.id),
+  'msg-new': el => { if (can.foreman()) msgModal(); },
+  'msg-reply': el => { if (can.foreman()) msgModal('user', el.dataset.id); },
 
   /* projekty */
   'project-detail': el => projectDetail(el.dataset.id),
@@ -1591,7 +1635,7 @@ function msgModal(type = 'user', toId = '') {
   const isF = can.foreman();
   modal('Nowa wiadomość', `${isF ? `<label>Do<select name="toType" data-chg="msg-type">${opt('user', 'Osoba', type === 'user')}${opt('group', 'Rotacja / grupa', type === 'group')}${opt('all', 'Wszyscy', type === 'all')}</select></label>` : '<input type="hidden" name="toType" value="user">'}
     <label class="mt-user">Osoba<select name="toUser">${userOpts(toId, u => u.id !== ME.id && (isF || ROLES[u.role].rank >= 2))}</select></label>
-    <label class="mt-group" hidden>Grupa<select name="toGroup">${DB.groups.map(g => opt(g.id, `${g.name} (${activeUsers().filter(u => u.groupId === g.id).length} os.)`)).join('')}</select></label>
+    <label class="mt-group" hidden>Grupa<select name="toGroup">${DB.groups.map(g => opt(g.id, `${g.name} (${crew().filter(u => u.groupId === g.id).length} os.)`)).join('')}</select></label>
     <label>Treść<textarea name="text" rows="4" required></textarea></label>`, {
     submitLabel: 'Wyślij',
     onSubmit: fd => { const tt = fd.get('toType'); const to = tt === 'user' ? fd.get('toUser') : tt === 'group' ? fd.get('toGroup') : ''; if (tt !== 'all' && !to) throw new Error('Wybierz odbiorcę'); DB.messages.push({ id: uid(), fromId: ME.id, toType: tt, toId: to, text: String(fd.get('text')).trim(), createdAt: Date.now(), readBy: [] }); log(`Wiadomość → ${tt === 'all' ? 'wszyscy' : tt === 'group' ? groupById(to)?.name : nameOf(to)}`); save(); render(); toast('Wysłano'); },
