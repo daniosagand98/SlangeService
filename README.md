@@ -32,6 +32,16 @@ Menu → **Sterowanie rotacjami** (kierownik/admin; skróty także na Pulpicie i
 Stawka za godzinę jest wybierana w tej kolejności: **indywidualna stawka pracownika** (wygrywa zawsze) → **stawka projektu** → **stawka rotacji** → **stawka domyślna**. Zakładka „Stawki” ustawia wszystkie poziomy, a przycisk ✎ przy pracowniku – stawkę indywidualną, podatek %, dodatek, potrącenia i notatkę. Opcjonalnie nadgodziny (po X h dziennie, +Y%). Zakładka „Rozliczenie”: miesiąc, godziny × stawki, brutto/netto (szac.), znacznik „wypłacone”, szczegóły dni pracy, eksport CSV.
 Pracownik w **Godziny pracy → Moje** widzi „Moja wypłata – szacunkowo” i może doliczyć planowane godziny.
 
+## Języki i tłumaczenie wiadomości
+
+Każdy ustawia język w **Moje konto → Język** (Polski / Norsk / English). Menu zmienia język, a wiadomości są automatycznie tłumaczone na język odbiorcy (darmowe API MyMemory – ok. 5000 znaków dziennie na urządzenie; tłumaczenie zapisuje się przy wiadomości, a „Pokaż oryginał” pokazuje tekst nadawcy). Bez internetu widać oryginał.
+
+## Kopie zapasowe
+
+- **Każdy**: Moje konto → „Kopia mojego konta”.
+- **Kierownik / admin**: menu → **Kopie zapasowe**: cały program, wybrany użytkownik, wybrane części (godziny, domy i auta, rotacje, bilety, dokumenty, wiadomości, karty, zgłoszenia, wypłaty – ta tylko dla księgowej/admina). Kopia całości zastępuje dane; kopia użytkownika/części jest dołączana (nic nie kasuje). W kopiach robionych przez kierownika nie ma autorów anonimowych skarg ani haseł innych osób.
+- **Admin**: Panel admina → kto był online, tabela wszystkich kont (e-mail, ranga, język, status), ustawianie hasła, blokowanie, kopia pojedynczego konta, prośby o reset hasła, logi.
+
 ## Moje konto i zgłoszenia
 
 Kliknij swoje imię/avatar → **Moje konto**: zmiana hasła (z obecnym hasłem), zmiana e-maila, **Zgłoś błąd w aplikacji** (opis + maks. 3 zrzuty ekranu, trafia do admina), **Napisz do kierownika** (zgłoszenie / informacja / skarga, opcjonalnie **anonimowo**), **Moje zgłoszenia** (status i odpowiedź).

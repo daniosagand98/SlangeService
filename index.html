@@ -746,6 +746,18 @@ button.tag{cursor:pointer}
 .rate-row .muted{font-weight:400}
 .col.gap{display:flex;flex-direction:column;gap:14px}
 
+/* ---------- języki, tłumaczenia, kopie, konta ---------- */
+.langs{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px}
+.langs .flag{font-size:26px;line-height:1}
+.m-tr{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:6px;font-size:11.5px}
+.m-tr .i{width:12px;height:12px}
+.bk-parts{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:8px;margin-bottom:14px}
+.bk-parts .check{padding:9px 11px;border-radius:10px;border:1px solid var(--line);background:rgba(0,0,0,.22)}
+.card-h h3 .i{width:17px;height:17px;vertical-align:-3px;margin-right:4px;color:var(--accent)}
+.acctbl{min-width:900px}
+.acctbl tr.off td{opacity:.55}
+.acctbl .acts{white-space:nowrap;display:flex;gap:4px;justify-content:flex-end}
+
 </style>
 </head>
 <body>
@@ -763,8 +775,8 @@ button.tag{cursor:pointer}
    ========================================================= */
 'use strict';
 
-const VERSION = '1.5.0';
-const BUILD = '2026-10-18T03:09:47.586Z'; // build.js wstawia tu datę i godzinę aktualizacji
+const VERSION = '1.6.0';
+const BUILD = '2026-10-18T03:14:22.480Z'; // build.js wstawia tu datę i godzinę aktualizacji
 const DWS_URL = 'https://github.com/daniosagand98';
 function buildLabel() { const d = new Date(BUILD); if (isNaN(d)) return ''; const p = n => String(n).padStart(2, '0'); return `${p(d.getDate())}.${p(d.getMonth() + 1)}.${d.getFullYear()}, godz. ${p(d.getHours())}:${p(d.getMinutes())}`; }
 function footHTML() { const b = buildLabel(); return `<div class="foot-by">Created and designed by <a href="${DWS_URL}" target="_blank" rel="noopener">DWSystem</a></div><div class="foot-ver">CrewControl wersja ${VERSION}${b ? ` · zaktualizowano ${b}` : ''}</div>`; }
@@ -1134,6 +1146,7 @@ const NAV = [
   { id: 'reports', icon: 'flag', label: 'Zgłoszenia', min: 3 },
   { id: 'projects', icon: 'folder', label: 'Projekty', min: 2, hide: ['ksiegowa'] },
   { id: 'people', icon: 'users', label: 'Pracownicy', min: 3 },
+  { id: 'backup', icon: 'dl', label: 'Kopie zapasowe', min: 3 },
   { id: 'admin', icon: 'shield', label: 'Panel admina', min: 4 },
 ];
 const BNAV = ['dash', 'hours', 'rota', 'tickets'];
@@ -1168,7 +1181,7 @@ function previewBar() {
 }
 function shell(v) {
   const navItems = NAV.filter(navOk);
-  const link = (n, cls = '') => { const b = navBadge(n.id); return `<a href="#${n.id}" class="${cls} ${VIEW === n.id ? 'on' : ''}" data-act="go" data-v="${n.id}">${ic(n.icon)}<span>${n.label}</span>${b ? `<b class="badge">${b}</b>` : ''}</a>`; };
+  const link = (n, cls = '') => { const b = navBadge(n.id); return `<a href="#${n.id}" class="${cls} ${VIEW === n.id ? 'on' : ''}" data-act="go" data-v="${n.id}">${ic(n.icon)}<span>${navLabel(n)}</span>${b ? `<b class="badge">${b}</b>` : ''}</a>`; };
   const unread = unreadCount();
   return `${previewBar()}
   <div class="shell">
@@ -1191,8 +1204,8 @@ function shell(v) {
       <section class="view" key="${VIEW}">${v.html}</section>
       <footer class="foot">${footHTML()}<div class="foot-note">${esc(COMPANY)} · ${PREVIEW ? 'tryb podglądu (dane demo, lokalnie)' : 'dane zapisywane lokalnie w tej przeglądarce'}</div></footer>
     </main>
-    <nav class="bnav">${bnav().map(id => { const n = NAV.find(x => x.id === id); const b = navBadge(id); return `<a href="#${id}" class="${VIEW === id ? 'on' : ''}" data-act="go" data-v="${id}">${ic(n.icon)}<span>${n.label.split(' ')[0]}</span>${b ? `<b class="badge">${b}</b>` : ''}</a>`; }).join('')}
-      <a href="#more" data-act="menu">${ic('menu')}<span>Więcej</span>${(navBadge('msgs') + navBadge('cards') + navBadge('people')) ? `<b class="badge">${navBadge('msgs') + navBadge('cards') + navBadge('people')}</b>` : ''}</a></nav>
+    <nav class="bnav">${bnav().map(id => { const n = NAV.find(x => x.id === id); const b = navBadge(id); return `<a href="#${id}" class="${VIEW === id ? 'on' : ''}" data-act="go" data-v="${id}">${ic(n.icon)}<span>${navLabel(n).split(' ')[0]}</span>${b ? `<b class="badge">${b}</b>` : ''}</a>`; }).join('')}
+      <a href="#more" data-act="menu">${ic('menu')}<span>${NAV_T[langOf()]?.more || 'Więcej'}</span>${(navBadge('msgs') + navBadge('cards') + navBadge('people')) ? `<b class="badge">${navBadge('msgs') + navBadge('cards') + navBadge('people')}</b>` : ''}</a></nav>
   </div>`;
 }
 let LAST_VIEW = null, LAST_ARG = null, LAST_ME = null;
@@ -2110,7 +2123,7 @@ VIEWS.msgs = () => {
   let changed = false; list.forEach(m => { m.readBy = m.readBy || []; if (m.fromId !== ME.id && !m.readBy.includes(ME.id)) { m.readBy.push(ME.id); m._new = true; changed = true; } });
   if (changed) save();
   const to = m => m.toType === 'all' ? 'Wszyscy' : m.toType === 'group' ? (groupById(m.toId)?.name || 'grupa') : nameOf(m.toId);
-  const html = `<div class="msgs">${list.map((m, i) => { const mine = m.fromId === ME.id; const r = `<div class="msg anim ${mine ? 'mine' : ''} ${m._new ? 'new' : ''}" style="--i:${Math.min(i, 8)}">${mine ? '' : avatar(userById(m.fromId))}<div class="bubble"><div class="m-meta"><b>${mine ? 'Ty' : esc(nameOf(m.fromId))}</b> → ${esc(to(m))} · ${relTime(m.createdAt)}</div><div class="m-text">${esc(m.text).replace(/\n/g, '<br>')}</div>${!mine ? `${can.foreman() ? `<button type="button" class="link small" data-act="msg-reply" data-id="${m.fromId}">Odpowiedz</button>` : ''}` : `<span class="muted small">przeczytało: ${(m.readBy || []).length}</span>`}</div></div>`; delete m._new; return r; }).join('') || empty('Brak wiadomości', 'chat')}</div>`;
+  const html = `<div class="msgs">${list.map((m, i) => { const mine = m.fromId === ME.id; const r = `<div class="msg anim ${mine ? 'mine' : ''} ${m._new ? 'new' : ''}" style="--i:${Math.min(i, 8)}">${mine ? '' : avatar(userById(m.fromId))}<div class="bubble"><div class="m-meta"><b>${mine ? 'Ty' : esc(nameOf(m.fromId))}</b> → ${esc(to(m))} · ${relTime(m.createdAt)}</div>${msgTextHTML(m)}${!mine ? `${can.foreman() ? `<button type="button" class="link small" data-act="msg-reply" data-id="${m.fromId}">Odpowiedz</button>` : ''}` : `<span class="muted small">przeczytało: ${(m.readBy || []).length}</span>`}</div></div>`; delete m._new; return r; }).join('') || empty('Brak wiadomości', 'chat')}</div>`;
   return { title: 'Wiadomości', sub: can.foreman() ? 'Do osoby, rotacji lub wszystkich' : 'Wiadomości od kierownictwa', html, action: can.foreman() ? `<button type="button" class="btn primary" data-act="msg-new">${ic('send')}<span class="hide-s"> Napisz</span></button>` : '' };
 };
 
@@ -2204,6 +2217,143 @@ VIEWS.user = () => {
 };
 
 /* ----- ADMIN ----- */
+/* =========================================================
+   JĘZYKI (PL / NO / EN) + automatyczne tłumaczenie wiadomości
+   ========================================================= */
+const LANGS = { pl: { label: 'Polski', flag: '🇵🇱', api: 'pl-PL' }, no: { label: 'Norsk', flag: '🇳🇴', api: 'nb-NO' }, en: { label: 'English', flag: '🇬🇧', api: 'en-GB' } };
+const langOf = (u = ME) => LANGS[u?.lang] ? u.lang : 'pl';
+// nawigacja w języku użytkownika (reszta interfejsu na razie po polsku)
+const NAV_T = {
+  no: { dash: 'Oversikt', hours: 'Arbeidstimer', rota: 'Turnus og plan', rotations: 'Styr turnuser', pay: 'Lønn', houses: 'Kart', cars: 'Biler', cards: 'Drivstoffkort', tickets: 'Billetter og reise', docs: 'Dokumenter', msgs: 'Meldinger', reports: 'Meldinger til ledelsen', projects: 'Prosjekter', people: 'Ansatte', backup: 'Sikkerhetskopi', admin: 'Adminpanel', more: 'Mer' },
+  en: { dash: 'Dashboard', hours: 'Work hours', rota: 'Schedule & rotations', rotations: 'Manage rotations', pay: 'Payroll', houses: 'Map', cars: 'Cars', cards: 'Fuel cards', tickets: 'Tickets & travel', docs: 'Documents', msgs: 'Messages', reports: 'Reports', projects: 'Projects', people: 'Employees', backup: 'Backups', admin: 'Admin panel', more: 'More' },
+};
+const navLabel = n => NAV_T[langOf()]?.[n.id] || n.label;
+const TR_UI = {
+  pl: { tr: 'przetłumaczono z', orig: 'Pokaż oryginał', back: 'Pokaż tłumaczenie', wait: 'tłumaczę…', fail: 'Tłumaczenie niedostępne (brak internetu lub limit) – pokazuję oryginał' },
+  no: { tr: 'oversatt fra', orig: 'Vis original', back: 'Vis oversettelse', wait: 'oversetter…', fail: 'Oversettelse utilgjengelig – viser originalen' },
+  en: { tr: 'translated from', orig: 'Show original', back: 'Show translation', wait: 'translating…', fail: 'Translation unavailable – showing original' },
+};
+const TR_PENDING = new Set();
+// darmowe API MyMemory (działa z przeglądarki); tekst dzielony na kawałki ≤ 450 bajtów
+async function translateText(text, from, to) {
+  const parts = []; let cur = '';
+  for (const s of String(text).split(/(?<=[.!?\n])\s*/)) {
+    if (new TextEncoder().encode(cur + ' ' + s).length > 450 && cur) { parts.push(cur); cur = s; } else cur = cur ? cur + ' ' + s : s;
+  }
+  if (cur) parts.push(cur);
+  const out = [];
+  for (const q of parts) {
+    const r = await fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(q)}&langpair=${LANGS[from].api}|${LANGS[to].api}`);
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const j = await r.json(); const t = j?.responseData?.translatedText;
+    if (!t || j.responseStatus >= 400 || /MYMEMORY WARNING|QUERY LENGTH LIMIT/i.test(t)) throw new Error(t || 'brak tłumaczenia');
+    out.push(t);
+  }
+  const ta = document.createElement('textarea'); ta.innerHTML = out.join(' '); return ta.value;
+}
+function msgTextHTML(m) {
+  const to = langOf(), from = LANGS[m.lang] ? m.lang : 'pl', T = TR_UI[to];
+  if (m.fromId === ME.id || from === to) return `<div class="m-text">${esc(m.text).replace(/\n/g, '<br>')}</div>`;
+  const tr = m.tr?.[to], showOrig = SHOW_ORIG.has(m.id);
+  if (!tr) {
+    if (m.trFail?.[to]) return `<div class="m-text">${esc(m.text).replace(/\n/g, '<br>')}</div><div class="m-tr muted small">${ic('warn')} ${T.fail}</div>`;
+    queueTranslate(m, from, to);
+    return `<div class="m-text">${esc(m.text).replace(/\n/g, '<br>')}</div><div class="m-tr muted small">${LANGS[from].flag} → ${LANGS[to].flag} ${T.wait}</div>`;
+  }
+  return `<div class="m-text">${esc(showOrig ? m.text : tr).replace(/\n/g, '<br>')}</div><div class="m-tr muted small">${LANGS[from].flag} ${T.tr} ${LANGS[from].label} · <button type="button" class="link small" data-act="msg-orig" data-id="${m.id}">${showOrig ? T.back : T.orig}</button></div>`;
+}
+const SHOW_ORIG = new Set();
+function queueTranslate(m, from, to) {
+  const k = m.id + to; if (TR_PENDING.has(k)) return; TR_PENDING.add(k);
+  translateText(m.text, from, to).then(t => { m.tr = m.tr || {}; m.tr[to] = t; }).catch(() => { m.trFail = m.trFail || {}; m.trFail[to] = Date.now(); })
+    .finally(() => { TR_PENDING.delete(k); save(); if (VIEW === 'msgs' || VIEW === 'dash') render(); });
+}
+
+/* =========================================================
+   KOPIE ZAPASOWE – cały program, wybrany użytkownik, wybrane części, własne konto
+   ========================================================= */
+const BK_PARTS = {
+  hours: { label: 'Godziny pracy + projekty', keys: ['hours', 'projects'] },
+  housing: { label: 'Domy, auta, tankowania', keys: ['houses', 'cars', 'refuels'] },
+  rot: { label: 'Rotacje', keys: ['groups'] },
+  tickets: { label: 'Bilety', keys: ['tickets'] },
+  docs: { label: 'Dokumenty', keys: ['docs'] },
+  msgs: { label: 'Wiadomości', keys: ['messages'] },
+  cards: { label: 'Karty paliwowe', keys: ['fuelCards', 'cardTransfers'] },
+  reports: { label: 'Zgłoszenia', keys: ['reports'] },
+  pay: { label: 'Wypłaty i stawki', keys: [], pay: true },
+};
+const fileIdsOf = db => [...(db.tickets || []).flatMap(t => t.fileIds || []), ...(db.docs || []).map(d => d.fileId), ...(db.refuels || []).map(r => r.fileId), ...(db.reports || []).flatMap(r => r.fileIds || [])].filter(Boolean);
+// kierownik/księgowa/pracownik nie dostaje w kopii autora anonimowych zgłoszeń, haseł ani kodów odzyskiwania innych osób
+function sanitize(db, opts = {}) {
+  const d = JSON.parse(JSON.stringify(db));
+  if (!can.admin()) {
+    (d.reports || []).forEach(r => { if (r.anon) r.fromId = ''; });
+    (d.users || []).forEach(u => { if (u.id !== ME.id || opts.dropOwnSecrets) { delete u.pass; delete u.recovery; } });
+  }
+  if (!can.pay() && !opts.keepPay) { delete d.pay; (d.users || []).forEach(u => { if (u.pay) delete u.pay.note; }); }
+  return d;
+}
+async function downloadBackup(scope, db, label) {
+  const ids = new Set(fileIdsOf(db));
+  const files = (await FS.all().catch(() => [])).filter(f => scope === 'all' || ids.has(f.id));
+  const enc = await Promise.all(files.map(f => new Promise(res => { const r = new FileReader(); r.onload = () => res({ id: f.id, name: f.name, type: f.type, at: f.at, data: r.result }); r.readAsDataURL(f.blob); })));
+  const blob = new Blob([JSON.stringify({ app: 'CrewControl', version: VERSION, scope, label, by: ME.id, at: new Date().toISOString(), db, files: enc })], { type: 'application/json' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `crewcontrol-${scope}-${label.toLowerCase().replace(/[^a-z0-9ąćęłńóśźż]+/gi, '-')}-${isoLocal()}.json`; document.body.appendChild(a); a.click(); a.remove();
+  DB.meta.lastBackup = Date.now(); log(`Kopia zapasowa: ${label}`); save(); toast('Kopia pobrana: ' + label);
+}
+function userSlice(u, own = false) {
+  const mine = x => x.userId === u.id;
+  const d = {
+    users: [u],
+    hours: DB.hours.filter(mine),
+    docs: DB.docs.filter(mine),
+    tickets: DB.tickets.filter(t => t.groupId === u.groupId || (t.userIds || []).includes(u.id)),
+    messages: DB.messages.filter(m => m.fromId === u.id || (m.toType === 'user' && m.toId === u.id) || m.toType === 'all' || (m.toType === 'group' && m.toId === u.groupId)),
+    reports: DB.reports.filter(r => r.fromId === u.id && (own || can.admin() || !r.anon)),
+    refuels: DB.refuels.filter(r => r.userId === u.id),
+    cardTransfers: DB.cardTransfers.filter(t => t.fromId === u.id || t.toId === u.id),
+    projects: DB.projects, groups: DB.groups.filter(g => g.id === u.groupId),
+    houses: DB.houses.filter(h => h.id === u.houseId), cars: DB.cars.filter(c => c.id === u.carId),
+  };
+  return sanitize(d, { dropOwnSecrets: true, keepPay: own });
+}
+VIEWS.backup = () => {
+  const ed = can.manage(), parts = Object.entries(BK_PARTS).filter(([k]) => k !== 'pay' || can.pay());
+  let html = `<div class="grid2">
+    <div class="card anim"><div class="card-h"><h3>${ic('shield')} Cały program</h3></div><p class="muted small">Wszystkie dane i pliki (bilety, umowy, paragony, zrzuty ekranu). Tą kopią można przenieść aplikację na inne urządzenie.${!can.admin() ? ' Autorzy anonimowych zgłoszeń i hasła innych osób nie są zapisywani.' : ''}</p>
+      <button type="button" class="btn primary block" data-act="bk-all">${ic('dl')} Pobierz kopię całości</button>
+      <div class="muted small" style="margin-top:10px">Ostatnia kopia: ${DB.meta.lastBackup ? fmtTs(DB.meta.lastBackup) : 'nigdy'}</div></div>
+    <div class="card anim" style="--i:1"><div class="card-h"><h3>${ic('users')} Wybrany użytkownik</h3></div><p class="muted small">Konto, godziny, dokumenty, bilety, wiadomości i zgłoszenia jednej osoby.</p>
+      <label>Użytkownik<select id="bkUser">${activeUsers().map(u => opt(u.id, `${u.name} (${ROLES[u.role].label})`)).join('')}</select></label>
+      <button type="button" class="btn primary block" data-act="bk-user">${ic('dl')} Pobierz kopię użytkownika</button></div>
+  </div>
+  <div class="card anim" style="--i:2"><div class="card-h"><h3>${ic('folder')} Wybrane części</h3></div>
+    <div class="bk-parts">${parts.map(([k, p]) => `<label class="check"><input type="checkbox" name="bkpart" value="${k}" ${k === 'hours' ? 'checked' : ''}> ${p.label}</label>`).join('')}</div>
+    <button type="button" class="btn primary" data-act="bk-parts">${ic('dl')} Pobierz wybrane</button></div>
+  <div class="card anim" style="--i:3"><div class="card-h"><h3>${ic('up')} Przywracanie</h3></div>
+    <p class="muted small">Kopia <b>całości</b> zastępuje obecne dane. Kopia <b>użytkownika</b> lub <b>wybranych części</b> jest <b>dołączana</b> – brakujące wpisy wracają, istniejące są aktualizowane, nic nie jest kasowane.</p>
+    <label class="btn ghost block filebtn">${ic('up')} Wybierz plik kopii<input type="file" accept=".json,application/json" data-chg="restore" hidden></label>
+    ${PREVIEW && can.admin() ? `<button type="button" class="btn danger block" data-act="reset-demo" style="margin-top:8px">${ic('trash')} Zresetuj dane demo</button>` : ''}</div>`;
+  return { title: 'Kopie zapasowe', sub: ed ? 'Cały program, wybrany użytkownik albo wybrane części' : '', html };
+};
+// dołączanie kopii częściowej: upsert po id; istniejących kont nie nadpisujemy (hasła zostają)
+async function mergeBackup(j) {
+  const d = j.db; let n = 0;
+  for (const k of Object.keys(emptyDB())) {
+    if (!Array.isArray(d[k]) || !Array.isArray(DB[k])) continue;
+    for (const x of d[k]) {
+      if (!x || !x.id) continue;
+      const i = DB[k].findIndex(y => y.id === x.id);
+      if (i < 0) { DB[k].push(x); n++; }
+      else if (k !== 'users') { DB[k][i] = { ...DB[k][i], ...x }; n++; }
+    }
+  }
+  if (d.pay && can.pay()) { const P = payCfg(); Object.assign(P.groups, d.pay.groups || {}); Object.assign(P.projects, d.pay.projects || {}); }
+  for (const x of j.files || []) { if (await FS.get(x.id).catch(() => null)) continue; const blob = await (await fetch(x.data)).blob(); await FS.put({ id: x.id, name: x.name, type: x.type, at: x.at, blob, size: blob.size }); }
+  return n;
+}
+
 /* =========================================================
    WYPŁATY – stawki (domyślna → rotacja → projekt → indywidualna) i rozliczenia
    ========================================================= */
@@ -2370,18 +2520,25 @@ VIEWS.admin = () => {
   const online = us.filter(u => u.lastSeen && now - u.lastSeen < 5 * 60000).length;
   const today = us.filter(u => u.lastSeen && now - u.lastSeen < 864e5).length;
   const logs = DB.logs.filter(l => !ST.logUser || l.userId === ST.logUser).slice(0, 150);
+  const resetsOpen = DB.resetRequests.filter(r => r.status === 'open' && userById(r.userId));
   let html = `<div class="stats">${stat('Online teraz', online, { icon: 'eye', tone: 'green' })}${stat('Aktywni (24 h)', today, { icon: 'users', tone: 'blue', i: 1 })}${stat('Kont', DB.users.length, { icon: 'shield', i: 2 })}${stat('Wpisów w logu', DB.logs.length, { icon: 'file', i: 3 })}</div>
   <div class="grid2"><div class="card anim" style="--i:4"><div class="card-h"><h3>Kto był online</h3></div>
     ${us.map(u => { const on = u.lastSeen && now - u.lastSeen < 5 * 60000; const hM = sumH(DB.hours.filter(h => h.userId === u.id && h.date.startsWith(monthNow()))); return `<div class="li click" data-act="go-user" data-id="${u.id}">${avatar(u)}<div class="grow"><b>${esc(u.name)}</b> <span class="role r-${u.role}">${ROLES[u.role].label}</span><div class="muted small"><span class="odot ${on ? 'on' : ''}"></span>${on ? 'online' : relTime(u.lastSeen)} · ${fmtH(hM)} w tym mies.</div></div>${ic('eye')}</div>`; }).join('')}</div>
-  <div class="card anim" style="--i:5"><div class="card-h"><h3>Kopia zapasowa</h3></div>
-    <p class="muted small">Pobierz całą aplikację (dane + pliki: bilety, umowy) jako jeden plik JSON. Możesz ją później przywrócić.</p>
-    <div class="col gap"><button type="button" class="btn primary block" data-act="backup">${ic('dl')} Pobierz kopię zapasową</button>
-    <label class="btn ghost block filebtn">${ic('up')} Przywróć z kopii<input type="file" accept=".json,application/json" data-chg="restore" hidden></label>
-    ${PREVIEW ? `<button type="button" class="btn danger block" data-act="reset-demo">${ic('trash')} Zresetuj dane demo</button>` : ''}</div>
+  <div class="card anim" style="--i:5"><div class="card-h"><h3>Kopie i reset hasła</h3></div>
+    <div class="col gap"><button type="button" class="btn primary block" data-act="go" data-v="backup">${ic('dl')} Kopie zapasowe (całość / użytkownik / części)</button>
+    ${resetsOpen.length ? resetsOpen.map(r => { const u = userById(r.userId); return `<div class="li">${avatar(u)}<div class="grow"><b>${esc(u.name)}</b><div class="muted small">prosi o reset hasła · ${relTime(r.at)}</div></div><button type="button" class="btn sm primary" data-act="admin-set-pass" data-id="${u.id}" data-req="${r.id}">${ic('key')} Ustaw</button></div>`; }).join('') : '<div class="muted small">Brak próśb o reset hasła.</div>'}</div>
     <div class="muted small" style="margin-top:12px">Ostatnia kopia: ${DB.meta.lastBackup ? fmtTs(DB.meta.lastBackup) : 'nigdy'}</div></div></div>
+  <div class="card anim" style="--i:6"><div class="card-h"><h3>Wszystkie konta</h3><span class="pill">${DB.users.length}</span></div>
+    <div class="tl-wrap"><table class="paytbl acctbl"><thead><tr><th>Osoba</th><th>Login</th><th>E-mail</th><th>Ranga</th><th>Język</th><th>Ostatnio</th><th>Status</th><th></th></tr></thead><tbody>
+    ${[...DB.users].sort((a, b) => (b.lastSeen || 0) - (a.lastSeen || 0)).map(u => { const on = u.lastSeen && now - u.lastSeen < 5 * 60000; return `<tr class="${u.active === false ? 'off' : ''}">
+      <td><button type="button" class="linkrow" data-act="go-user" data-id="${u.id}">${avatar(u)}<b>${esc(u.name)}</b></button></td><td>@${esc(u.login)}</td><td>${esc(u.email || '—')}</td><td><span class="role r-${u.role}">${ROLES[u.role].label}</span></td><td>${LANGS[langOf(u)].flag}</td>
+      <td><span class="odot ${on ? 'on' : ''}"></span>${on ? 'online' : relTime(u.lastSeen)}</td>
+      <td>${u.pending ? '<span class="pill warn">czeka</span>' : u.active === false ? '<span class="pill bad">zablokowane</span>' : '<span class="pill ok">aktywne</span>'}</td>
+      <td class="acts"><button type="button" class="ib sm" data-act="user-edit" data-id="${u.id}" title="Edytuj (dane, e-mail, ranga)">${ic('edit')}</button><button type="button" class="ib sm" data-act="admin-set-pass" data-id="${u.id}" title="Ustaw nowe hasło">${ic('key')}</button><button type="button" class="ib sm" data-act="bk-user-id" data-id="${u.id}" title="Kopia zapasowa użytkownika">${ic('dl')}</button>${u.id !== REAL.id ? `<button type="button" class="ib sm" data-act="acc-toggle" data-id="${u.id}" title="${u.active === false ? 'Odblokuj' : 'Zablokuj'} konto">${ic(u.active === false ? 'check' : 'x')}</button>` : ''}</td></tr>`; }).join('')}
+    </tbody></table></div></div>
   <div class="card anim" style="--i:6"><div class="card-h"><h3>Logi systemu</h3><select data-chg="log-user" class="mini">${userOpts(ST.logUser, () => true, 'Wszyscy')}</select></div>
     ${logs.map(l => `<div class="log"><span class="muted small">${fmtTs(l.at)}</span><b>${esc(nameOf(l.userId))}</b><span>${esc(l.action)}</span></div>`).join('') || empty('Brak logów', 'shield')}</div>`;
-  return { title: 'Panel admina', sub: 'Aktywność, logi, kopia zapasowa', html };
+  return { title: 'Panel admina', sub: 'Kto był online, wszystkie konta, e-maile, hasła, kopie zapasowe i logi', html };
 };
 
 /* =========================================================
@@ -2403,10 +2560,31 @@ const ACT = {
         ${tile('acc-email', 'mail', 'Zmień e-mail', ME.email ? esc(ME.email) : 'Nie podano adresu')}
         ${tile('acc-boss', 'flag', 'Napisz do kierownika', 'Zgłoszenie, informacja albo skarga – także anonimowo')}
         ${tile('acc-bug', 'bug', 'Zgłoś błąd w aplikacji', 'Opis + maks. 3 zrzuty ekranu')}
+        ${tile('acc-lang', 'chat', 'Język / Språk / Language', `${LANGS[langOf()].flag} ${LANGS[langOf()].label} – wiadomości tłumaczą się na ten język`)}
+        ${tile('acc-backup', 'dl', 'Kopia mojego konta', 'Pobierz swoje dane: godziny, dokumenty, bilety, wiadomości')}
         ${tile('acc-mine', 'file', 'Moje zgłoszenia', mine.length ? `${mine.length} wysłanych` : 'Jeszcze nic nie wysłano', mine.filter(r => r.reply && !r.replySeen).length)}
       </div>
       <div class="row gap wrap"><button type="button" class="btn ghost" data-act="go-user" data-id="${ME.id}">Mój profil</button><button type="button" class="btn ghost" data-act="install-help">${ic('dl')} Dodaj do ekranu</button>${canPass ? `<button type="button" class="btn ghost" data-act="new-recovery">${ic('key')} Nowy kod odzyskiwania</button>` : ''}${!PREVIEW ? `<button type="button" class="btn danger" data-act="logout">${ic('logout')} Wyloguj</button>` : ''}</div>`);
   },
+  'acc-lang': () => {
+    modal('Język / Språk / Language', `<div class="langs">${Object.entries(LANGS).map(([k, l]) => `<label class="rchip"><input type="radio" name="lang" value="${k}" ${langOf() === k ? 'checked' : ''}><span class="flag">${l.flag}</span><span>${l.label}</span></label>`).join('')}</div>
+      <p class="muted small">Wiadomości od kierownika, foremana i księgowej będą automatycznie tłumaczone na wybrany język (zawsze możesz zobaczyć oryginał). Twoje wiadomości są wysyłane w tym języku i tłumaczone u odbiorcy. Menu też zmieni język.</p>`, {
+      submitLabel: 'Zapisz', onSubmit: fd => { const l = fd.get('lang'); if (!LANGS[l]) return; ME.lang = l; log('Język: ' + LANGS[l].label); save(); render(); toast(LANGS[l].flag + ' ' + LANGS[l].label); },
+    });
+  },
+  'acc-backup': () => { closeModal(); downloadBackup('user', userSlice(ME, true), ME.name); },
+  'msg-orig': el => { const id = el.dataset.id; SHOW_ORIG.has(id) ? SHOW_ORIG.delete(id) : SHOW_ORIG.add(id); render(); },
+  'bk-all': () => { if (!can.manage()) return; downloadBackup('all', sanitize(DB), 'cały program'); },
+  'bk-user': () => { if (!can.manage()) return; const u = userById($('#bkUser')?.value); if (u) downloadBackup('user', userSlice(u), u.name); },
+  'bk-user-id': el => { if (!can.manage()) return; const u = userById(el.dataset.id); if (u) downloadBackup('user', userSlice(u), u.name); },
+  'bk-parts': () => {
+    if (!can.manage()) return; const ks = $$('[name=bkpart]:checked').map(x => x.value); if (!ks.length) return toast('Zaznacz co najmniej jedną część', 'err');
+    const d = { users: DB.users.map(u => ({ id: u.id, name: u.name, login: u.login, role: u.role })) };
+    ks.forEach(k => BK_PARTS[k].keys.forEach(c => { d[c] = DB[c]; }));
+    if (ks.includes('pay') && can.pay()) { d.pay = DB.pay; }
+    downloadBackup('parts', sanitize(d, { keepPay: ks.includes('pay') }), ks.map(k => BK_PARTS[k].label.split(' ')[0]).join('+'));
+  },
+  'acc-toggle': el => { const u = userById(el.dataset.id); if (!u || u.id === REAL.id) return; u.active = u.active === false; log(`${u.active ? 'Odblokowano' : 'Zablokowano'} konto ${u.name}`); save(); render(); toast(`${u.name}: konto ${u.active ? 'aktywne' : 'zablokowane'}`); },
   'acc-pass': () => {
     if (!(ME.id === REAL.id && !PREVIEW)) return toast(PREVIEW ? 'W trybie podglądu zmiana hasła jest wyłączona' : 'Hasło zmienisz tylko na swoim koncie', 'info');
     modal('Zmień hasło', `<label>Obecne hasło<input name="old" type="password" required autocomplete="current-password"></label><label>Nowe hasło<input name="pass" type="password" minlength="4" required autocomplete="new-password"></label><label>Powtórz nowe hasło<input name="pass2" type="password" minlength="4" required autocomplete="new-password"></label>`, {
@@ -2637,7 +2815,7 @@ const ACT = {
   'card-give': el => {
     const c = DB.fuelCards.find(x => x.id === el.dataset.id);
     modal('Przekaż kartę – ' + c.name, `<p class="muted small">Odbiorca musi potwierdzić w aplikacji, że dostał kartę. Do tego czasu karta jest zapisana na ${esc(nameOf(c.holderId))}.</p><label>Komu dajesz kartę?<select name="toId" required>${userOpts('', u => u.id !== c.holderId)}</select></label>`, {
-      submitLabel: 'Przekaż', onSubmit: fd => { const to = fd.get('toId'); if (!to) throw new Error('Wybierz osobę'); DB.cardTransfers.push({ id: uid(), cardId: c.id, fromId: c.holderId || ME.id, toId: to, byId: ME.id, status: 'pending', createdAt: Date.now() }); DB.messages.push({ id: uid(), fromId: ME.id, toType: 'user', toId: to, text: `🔑 Przekazuję Ci kartę paliwową ${c.name} (•••• ${c.last4}). Potwierdź odbiór w zakładce Karty paliwowe.`, createdAt: Date.now(), readBy: [] }); log(`Przekazanie karty ${c.name} → ${nameOf(to)} (czeka)`); save(); render(); toast('Wysłano – czeka na potwierdzenie'); },
+      submitLabel: 'Przekaż', onSubmit: fd => { const to = fd.get('toId'); if (!to) throw new Error('Wybierz osobę'); DB.cardTransfers.push({ id: uid(), cardId: c.id, fromId: c.holderId || ME.id, toId: to, byId: ME.id, status: 'pending', createdAt: Date.now() }); DB.messages.push({ id: uid(), lang: langOf(), fromId: ME.id, toType: 'user', toId: to, text: `🔑 Przekazuję Ci kartę paliwową ${c.name} (•••• ${c.last4}). Potwierdź odbiór w zakładce Karty paliwowe.`, createdAt: Date.now(), readBy: [] }); log(`Przekazanie karty ${c.name} → ${nameOf(to)} (czeka)`); save(); render(); toast('Wysłano – czeka na potwierdzenie'); },
     });
   },
   'card-accept': el => { const t = DB.cardTransfers.find(x => x.id === el.dataset.id); if (!t) return; const c = DB.fuelCards.find(x => x.id === t.cardId); t.status = 'accepted'; t.resolvedAt = Date.now(); if (c) c.holderId = t.toId; log(`Potwierdzono odbiór karty ${c?.name}`); save(); render(); toast('Karta jest teraz u Ciebie'); },
@@ -2672,8 +2850,8 @@ const ACT = {
           const nt = { id: uid(), ...d, fileIds: ids, createdBy: ME.id, createdAt: Date.now() }; DB.tickets.push(nt);
           if (fd.get('notify') === 'on') {
             const txt = `✈️ Bilety: ${d.direction === 'PL' ? 'wyjazd do Polski' : 'przyjazd do Norwegii'} ${fmtDate(d.date)} ${d.depTime} ${d.flightNo}. Pobierz w zakładce „Bilety i dojazd”.${d.note ? '\n' + d.note : ''}`;
-            if (d.groupId) DB.messages.push({ id: uid(), fromId: ME.id, toType: 'group', toId: d.groupId, text: txt, createdAt: Date.now(), readBy: [] });
-            d.userIds.filter(u => userById(u)?.groupId !== d.groupId).forEach(u => DB.messages.push({ id: uid(), fromId: ME.id, toType: 'user', toId: u, text: txt, createdAt: Date.now(), readBy: [] }));
+            if (d.groupId) DB.messages.push({ id: uid(), lang: langOf(), fromId: ME.id, toType: 'group', toId: d.groupId, text: txt, createdAt: Date.now(), readBy: [] });
+            d.userIds.filter(u => userById(u)?.groupId !== d.groupId).forEach(u => DB.messages.push({ id: uid(), lang: langOf(), fromId: ME.id, toType: 'user', toId: u, text: txt, createdAt: Date.now(), readBy: [] }));
           }
           log(`Wysłano bilety ${d.flightNo} do ${groupById(d.groupId)?.name || 'wybranych osób'} (${ids.length} plików)`);
         }
@@ -2737,7 +2915,7 @@ function msgModal(type = 'user', toId = '') {
     <label class="mt-group" ${type !== 'group' ? 'hidden' : ''}>Grupa<select name="toGroup">${DB.groups.map(g => opt(g.id, `${g.name} (${crew().filter(u => u.groupId === g.id).length} os.)`, type === 'group' && g.id === toId)).join('')}</select></label>
     <label>Treść<textarea name="text" rows="4" required></textarea></label>`, {
     submitLabel: 'Wyślij',
-    onSubmit: fd => { const tt = fd.get('toType'); const to = tt === 'user' ? fd.get('toUser') : tt === 'group' ? fd.get('toGroup') : ''; if (tt !== 'all' && !to) throw new Error('Wybierz odbiorcę'); DB.messages.push({ id: uid(), fromId: ME.id, toType: tt, toId: to, text: String(fd.get('text')).trim(), createdAt: Date.now(), readBy: [] }); log(`Wiadomość → ${tt === 'all' ? 'wszyscy' : tt === 'group' ? groupById(to)?.name : nameOf(to)}`); save(); render(); toast('Wysłano'); },
+    onSubmit: fd => { const tt = fd.get('toType'); const to = tt === 'user' ? fd.get('toUser') : tt === 'group' ? fd.get('toGroup') : ''; if (tt !== 'all' && !to) throw new Error('Wybierz odbiorcę'); DB.messages.push({ id: uid(), lang: langOf(), fromId: ME.id, toType: tt, toId: to, text: String(fd.get('text')).trim(), createdAt: Date.now(), readBy: [] }); log(`Wiadomość → ${tt === 'all' ? 'wszyscy' : tt === 'group' ? groupById(to)?.name : nameOf(to)}`); save(); render(); toast('Wysłano'); },
   });
 }
 const CHG = {
@@ -2760,6 +2938,12 @@ const CHG = {
     const f = el.files[0]; if (!f) return;
     try {
       const j = JSON.parse(await f.text()); if (!j.db || !j.db.users) throw new Error('To nie jest kopia CrewControl');
+      if (j.scope && j.scope !== 'all') {
+        if (!REAL || !can.manage()) throw new Error('Kopię użytkownika lub części może dołączyć kierownik albo admin (po zalogowaniu)');
+        if (!confirm(`Dołączyć kopię „${j.label || j.scope}” z ${j.at}? Brakujące dane wrócą, nic nie zostanie usunięte.`)) return;
+        const n = await mergeBackup(j); log(`Dołączono kopię: ${j.label || j.scope}`); save(); render(); el.value = ''; return toast(`Dołączono (${n} wpisów)`);
+      }
+      if (REAL && !can.manage()) throw new Error('Pełną kopię przywraca kierownik albo admin');
       if (!confirm(`Przywrócić kopię z ${j.at}? Obecne dane zostaną zastąpione.`)) return;
       await FS.clear().catch(() => { });
       for (const x of j.files || []) { const blob = await (await fetch(x.data)).blob(); await FS.put({ id: x.id, name: x.name, type: x.type, at: x.at, blob, size: blob.size }); }
@@ -2790,7 +2974,7 @@ const SUB = {
 function openMenu() {
   const items = NAV.filter(navOk);
   const d = document.createElement('div'); d.className = 'sheet-ov'; d.dataset.act = 'close-menu';
-  d.innerHTML = `<div class="sheet" onclick="event.stopPropagation()"><div class="grab"></div><div class="sheet-grid">${items.map(n => { const b = navBadge(n.id); return `<a href="#${n.id}" class="${VIEW === n.id ? 'on' : ''}" data-act="go" data-v="${n.id}">${ic(n.icon)}<span>${n.label}</span>${b ? `<b class="badge">${b}</b>` : ''}</a>`; }).join('')}</div>
+  d.innerHTML = `<div class="sheet" onclick="event.stopPropagation()"><div class="grab"></div><div class="sheet-grid">${items.map(n => { const b = navBadge(n.id); return `<a href="#${n.id}" class="${VIEW === n.id ? 'on' : ''}" data-act="go" data-v="${n.id}">${ic(n.icon)}<span>${navLabel(n)}</span>${b ? `<b class="badge">${b}</b>` : ''}</a>`; }).join('')}</div>
   <button type="button" class="me wide" data-act="profile">${avatar(ME)}<div><div class="me-n">${esc(ME.name)}</div><div class="me-r">${ROLES[ME.role].label}</div></div></button></div>`;
   d.querySelector('.sheet').addEventListener('click', e => { const el = e.target.closest('[data-act]'); if (el) { e.preventDefault(); const fn = ACT[el.dataset.act]; closeMenu(); fn && fn(el, e); } });
   document.body.appendChild(d); requestAnimationFrame(() => d.classList.add('in'));
