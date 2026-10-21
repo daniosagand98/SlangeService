@@ -180,6 +180,9 @@ przerwa {0} h ¦ pause {0} t ¦ break {0} h
 −{0} h przerwy ¦ −{0} t pause ¦ −{0} h break
 min. {0} znaki ¦ min. {0} tegn ¦ min. {0} characters
 oktober {0} ¦ oktober {0} ¦ October {0}
+DEMO – zobacz jako ¦ DEMO – vis som ¦ DEMO – view as
+wersja demo (przykładowe dane ¦ demoversjon (eksempeldata ¦ demo version (sample data
+Slangeservice AS · wersja demo (przykładowe dane ¦ Slangeservice AS · demoversjon (eksempeldata ¦ Slangeservice AS · demo version (sample data
 PODGLĄD (bez logowania ¦ FORHÅNDSVISNING (uten innlogging ¦ PREVIEW (no login
 Podgląd jako ¦ Vis som ¦ View as
 Wróć do siebie ¦ Tilbake til meg ¦ Back to me

@@ -8,6 +8,7 @@ Aplikacja do zarządzania ekipą w Norwegii: domy, auta, karty paliwowe, godziny
 |---|---|
 | `index.html` | Wersja właściwa – z logowaniem. Przy pierwszym otwarciu tworzysz konto admina. |
 | `preview.html` | Podgląd **bez logowania** z danymi demo – do testowania. Przełącznik ról u góry. |
+| `demo.html` | **Demo dla klientów** – bez logowania, dane przykładowe, bez rangi Admin (przełącznik: Kierownik / Foreman / Księgowa / Pracownik), język z przeglądarki. Link: `https://daniosagand98.github.io/SlangeService/demo.html` |
 | `src/app.js`, `src/style.css`, `src/template.html` | Źródła. Po zmianach uruchom `node build.js`, który składa oba pliki HTML. |
 | `icons/`, `manifest.webmanifest`, `sw.js` | Ikona aplikacji (iPhone/Android), opis do instalacji i tryb offline. |
 

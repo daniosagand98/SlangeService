@@ -6,7 +6,7 @@
    ========================================================= */
 'use strict';
 
-const VERSION = '1.7.0';
+const VERSION = '1.7.1';
 const BUILD = '__BUILD_TIME__'; // build.js wstawia tu datę i godzinę aktualizacji
 const GUIDE_IMG = '__GUIDE_IMG__'; // build.js: zrzuty do instrukcji
 const DWS_URL = 'https://github.com/daniosagand98';
@@ -14,9 +14,13 @@ function buildLabel() { const d = new Date(BUILD); if (isNaN(d)) return ''; cons
 function footHTML() { const b = buildLabel(); return `<div class="foot-by">Created and designed by <a href="${DWS_URL}" target="_blank" rel="noopener">DWSystem</a></div><div class="foot-ver">CrewControl wersja ${VERSION}${b ? ` · zaktualizowano ${b}` : ''}</div>`; }
 const COMPANY = 'Slangeservice AS';
 const PREVIEW = !!window.CC_PREVIEW;
-const STORE_KEY = PREVIEW ? 'cc_preview_db_v1' : 'cc_db_v1';
-const FILE_DB = PREVIEW ? 'cc_preview_files' : 'cc_files';
-const SESSION_KEY = PREVIEW ? 'cc_preview_session' : 'cc_session';
+// DEMO = wersja dla klienta (demo.html): bez logowania, bez rangi Admin, język z przeglądarki
+const DEMO = PREVIEW && !!window.CC_DEMO;
+const STORE_KEY = DEMO ? 'cc_demo_db_v1' : PREVIEW ? 'cc_preview_db_v1' : 'cc_db_v1';
+const FILE_DB = DEMO ? 'cc_demo_files' : PREVIEW ? 'cc_preview_files' : 'cc_files';
+const SESSION_KEY = DEMO ? 'cc_demo_session' : PREVIEW ? 'cc_preview_session' : 'cc_session';
+const DEMO_LANG_KEY = 'cc_demo_lang';
+const demoLang = () => { try { return localStorage.getItem(DEMO_LANG_KEY) || ''; } catch (_) { return ''; } };
 const ENTUR_CLIENT = 'slangeservice-crewcontrol';
 
 const ROLES = {
@@ -413,11 +417,11 @@ function navBadge(id) {
 /* ---------- powłoka ---------- */
 function previewBar() {
   if (!(PREVIEW || REAL?.role === 'admin')) return '';
-  const roles = Object.keys(ROLES);
+  const roles = Object.keys(ROLES).filter(r => !(DEMO && r === 'admin'));
   const cur = ME.role;
   const sameRole = activeUsers().filter(u => u.role === cur);
   return `<div class="pbar">
-    <div class="pbar-l">${ic('eye')}<span class="pbar-t">${PREVIEW ? 'PODGLĄD (bez logowania)' : 'Podgląd jako'}</span></div>
+    <div class="pbar-l">${ic('eye')}<span class="pbar-t">${DEMO ? 'DEMO – zobacz jako' : PREVIEW ? 'PODGLĄD (bez logowania)' : 'Podgląd jako'}</span></div>
     <div class="seg">${roles.map(r => `<button type="button" class="${cur === r ? 'on' : ''}" data-act="view-as-role" data-role="${r}">${ROLES[r].label}</button>`).join('')}</div>
     ${sameRole.length > 1 ? `<select class="pbar-sel" data-chg="view-as-user">${sameRole.map(u => opt(u.id, u.name, u.id === ME.id)).join('')}</select>` : ''}
     ${ME.id !== REAL.id ? `<button type="button" class="btn sm ghost" data-act="view-as-reset">Wróć do siebie</button>` : ''}
@@ -446,7 +450,7 @@ function shell(v) {
         <button type="button" class="ib av-btn" data-act="profile">${avatar(ME)}</button>
       </header>
       <section class="view" key="${VIEW}">${v.html}</section>
-      <footer class="foot">${footHTML()}<div class="foot-note">${esc(COMPANY)} · ${PREVIEW ? 'tryb podglądu (dane demo, lokalnie)' : 'dane zapisywane lokalnie w tej przeglądarce'}</div></footer>
+      <footer class="foot">${footHTML()}<div class="foot-note">${esc(COMPANY)} · ${DEMO ? 'wersja demo (przykładowe dane)' : PREVIEW ? 'tryb podglądu (dane demo, lokalnie)' : 'dane zapisywane lokalnie w tej przeglądarce'}</div></footer>
     </main>
     <nav class="bnav">${bnav().map(id => { const n = NAV.find(x => x.id === id); const b = navBadge(id); return `<a href="#${id}" class="${VIEW === id ? 'on' : ''}" data-act="go" data-v="${id}">${ic(n.icon)}<span>${({ no: { hours: 'Timer', rota: 'Plan', tickets: 'Billetter', pay: 'Lønn', msgs: 'Meldinger' }, en: { hours: 'Hours', rota: 'Schedule', tickets: 'Tickets', pay: 'Payroll', msgs: 'Messages' } })[langOf()]?.[id] || navLabel(n).split(' ')[0]}</span>${b ? `<b class="badge">${b}</b>` : ''}</a>`; }).join('')}
       <a href="#more" data-act="menu">${ic('menu')}<span>${NAV_T[langOf()]?.more || 'Więcej'}</span>${(navBadge('msgs') + navBadge('cards') + navBadge('people')) ? `<b class="badge">${navBadge('msgs') + navBadge('cards') + navBadge('people')}</b>` : ''}</a></nav>
@@ -1490,7 +1494,7 @@ function browserLang() {
   }
   return 'en';
 }
-const langOf = (u = ME) => LANGS[u?.lang] ? u.lang : browserLang();
+const langOf = (u = ME) => DEMO ? (LANGS[demoLang()] ? demoLang() : browserLang()) : LANGS[u?.lang] ? u.lang : browserLang();
 const langRow = () => `<div class="acc-langs">${Object.entries(LANGS).map(([k, l]) => `<button type="button" class="${langOf() === k ? 'on' : ''}" data-act="set-lang" data-k="${k}"><span class="flag">${l.flag}</span>${l.label}</button>`).join('')}</div>`;
 // nawigacja w języku użytkownika (reszta interfejsu na razie po polsku)
 const NAV_T = {
@@ -1604,7 +1608,7 @@ VIEWS.backup = () => {
   <div class="card anim" style="--i:3"><div class="card-h"><h3>${ic('up')} Przywracanie</h3></div>
     <p class="muted small">Kopia <b>całości</b> zastępuje obecne dane. Kopia <b>użytkownika</b> lub <b>wybranych części</b> jest <b>dołączana</b> – brakujące wpisy wracają, istniejące są aktualizowane, nic nie jest kasowane.</p>
     <label class="btn ghost block filebtn">${ic('up')} Wybierz plik kopii<input type="file" accept=".json,application/json" data-chg="restore" hidden></label>
-    ${PREVIEW && can.admin() ? `<button type="button" class="btn danger block" data-act="reset-demo" style="margin-top:8px">${ic('trash')} Zresetuj dane demo</button>` : ''}</div>`;
+    ${PREVIEW && (can.admin() || (DEMO && can.manage())) ? `<button type="button" class="btn danger block" data-act="reset-demo" style="margin-top:8px">${ic('trash')} Zresetuj dane demo</button>` : ''}</div>`;
   return { title: 'Kopie zapasowe', sub: ed ? 'Cały program, wybrany użytkownik albo wybrane części' : '', html };
 };
 // dołączanie kopii częściowej: upsert po id; istniejących kont nie nadpisujemy (hasła zostają)
@@ -1840,7 +1844,7 @@ const ACT = {
       </div>
       <div class="row gap wrap"><button type="button" class="btn ghost" data-act="go-user" data-id="${ME.id}">Mój profil</button><button type="button" class="btn ghost" data-act="install-help">${ic('dl')} Dodaj do ekranu</button>${canPass ? `<button type="button" class="btn ghost" data-act="new-recovery">${ic('key')} Nowy kod odzyskiwania</button>` : ''}${!PREVIEW ? `<button type="button" class="btn danger" data-act="logout">${ic('logout')} Wyloguj</button>` : ''}</div>`);
   },
-  'set-lang': el => { const l = el.dataset.k; if (!LANGS[l]) return; ME.lang = l; log('Język: ' + LANGS[l].label); save(); $$('.acc-langs button').forEach(b => b.classList.toggle('on', b.dataset.k === l)); render(); toast(LANGS[l].flag + ' ' + LANGS[l].label); },
+  'set-lang': el => { const l = el.dataset.k; if (!LANGS[l]) return; ME.lang = l; if (DEMO) try { localStorage.setItem(DEMO_LANG_KEY, l); } catch (_) { } log('Język: ' + LANGS[l].label); save(); $$('.acc-langs button').forEach(b => b.classList.toggle('on', b.dataset.k === l)); render(); toast(LANGS[l].flag + ' ' + LANGS[l].label); },
   'acc-lang': () => {
     modal('Język / Språk / Language', `<div class="langs">${Object.entries(LANGS).map(([k, l]) => `<label class="rchip"><input type="radio" name="lang" value="${k}" ${langOf() === k ? 'checked' : ''}><span class="flag">${l.flag}</span><span>${l.label}</span></label>`).join('')}</div>
       <p class="muted small">Wiadomości od kierownika, foremana i księgowej będą automatycznie tłumaczone na wybrany język (zawsze możesz zobaczyć oryginał). Twoje wiadomości są wysyłane w tym języku i tłumaczone u odbiorcy. Menu też zmieni język.</p>`, {
@@ -1986,6 +1990,7 @@ const ACT = {
   /* podgląd ról */
   'view-as-role': el => {
     const r = el.dataset.role;
+    if (DEMO && r === 'admin') return;
     if (r === REAL.role && !PREVIEW) { ME = REAL; }
     else { const cand = activeUsers().filter(u => u.role === r); ME = cand.find(u => u.id === REAL.id) || cand[0] || { ...REAL, role: r, _sim: true }; }
     SELECTED = null; render(); toast('Podgląd jako: ' + ROLES[r].label + (ME._sim ? ' (brak konta tej rangi – symulacja)' : ' – ' + ME.name), 'info');
@@ -2199,7 +2204,7 @@ const ACT = {
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `crewcontrol-backup-${isoLocal()}.json`; a.click();
     toast('Kopia pobrana'); render();
   },
-  'reset-demo': () => confirmBox('Usunąć wszystkie dane demo i wczytać od nowa?', async () => { localStorage.removeItem(STORE_KEY); await FS.clear().catch(() => { }); load(); REAL = ME = DB.users[0]; localStorage.setItem(SESSION_KEY, REAL.id); VIEW = 'dash'; render(); }, 'Resetuj'),
+  'reset-demo': () => confirmBox('Usunąć wszystkie dane demo i wczytać od nowa?', async () => { localStorage.removeItem(STORE_KEY); await FS.clear().catch(() => { }); load(); REAL = ME = DEMO ? (DB.users.find(u => u.role === 'kierownik') || DB.users[0]) : DB.users[0]; localStorage.setItem(SESSION_KEY, REAL.id); VIEW = 'dash'; render(); }, 'Resetuj'),
 };
 function addHours(d) {
   const dup = DB.hours.find(h => h.userId === d.userId && h.date === d.date && h.from < d.to && d.from < h.to);
@@ -2336,7 +2341,9 @@ function boot() {
   load();
   if (PREVIEW) {
     let id = localStorage.getItem(SESSION_KEY);
-    REAL = DB.users.find(u => u.id === id && u.role === 'admin') || DB.users.find(u => u.role === 'admin');
+    const startRole = DEMO ? 'kierownik' : 'admin';
+    REAL = DB.users.find(u => u.id === id && u.role === startRole) || DB.users.find(u => u.role === startRole);
+    if (DEMO) DB.users.forEach(u => { if (u.role === 'admin' && u.name === 'Ty (Admin)') u.name = 'Admin'; });
     localStorage.setItem(SESSION_KEY, REAL.id);
   } else {
     const id = localStorage.getItem(SESSION_KEY); REAL = DB.users.find(u => u.id === id && u.active !== false && !u.pending) || null;

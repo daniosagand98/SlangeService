@@ -12,12 +12,15 @@ const shots = fs.existsSync(gdir) ? fs.readdirSync(gdir).filter(f => f.endsWith(
 const guideImg = embed => JSON.stringify(Object.fromEntries(shots.map(f => [f.replace(/\.webp$/, ''), embed ? 'data:image/webp;base64,' + fs.readFileSync(path.join(gdir, f)).toString('base64') : 'guide/' + f + '?v=' + Date.now().toString(36)])));
 const logo = 'data:image/webp;base64,' + fs.readFileSync(path.join(__dirname, 'icons', 'logo.webp')).toString('base64');
 const BUILT = new Date().toISOString(); // godzina aktualizacji strony – pokazywana w stopce
-const make = (preview, title) => tpl
+const make = (preview, title, demo = false, embed = preview) => tpl
   .replace('{{TITLE}}', title)
   .replace('{{PREVIEW}}', preview ? 'true' : 'false')
+  .replace('{{DEMO}}', demo ? 'true' : 'false')
   .replace('{{LOGO}}', logo)
   .replace('{{CSS}}', () => css)
-  .replace('{{JS}}', () => js.replace('__BUILD_TIME__', BUILT).replace("'__GUIDE_IMG__'", () => guideImg(preview)));
+  .replace('{{JS}}', () => js.replace('__BUILD_TIME__', BUILT).replace("'__GUIDE_IMG__'", () => guideImg(embed)));
 fs.writeFileSync(path.join(__dirname, 'index.html'), make(false, 'CrewControl · Slangeservice AS'));
 fs.writeFileSync(path.join(__dirname, 'preview.html'), make(true, 'CrewControl · PODGLĄD'));
-console.log('OK: index.html + preview.html');
+// demo.html – dla klientów: bez logowania, bez rangi Admin, język z przeglądarki; zrzuty jako pliki guide/*.webp (lżejszy plik)
+fs.writeFileSync(path.join(__dirname, 'demo.html'), make(true, 'CrewControl · Demo', true, false));
+console.log('OK: index.html + preview.html + demo.html');
