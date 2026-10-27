@@ -6,7 +6,7 @@
    ========================================================= */
 'use strict';
 
-const VERSION = '1.7.0';
+const VERSION = '1.7.1';
 const BUILD = '__BUILD_TIME__'; // build.js wstawia tu datę i godzinę aktualizacji
 const GUIDE_IMG = '__GUIDE_IMG__'; // build.js: zrzuty do instrukcji
 const DWS_URL = 'https://github.com/daniosagand98';
@@ -1926,7 +1926,7 @@ const ACT = {
         const text = String(fd.get('text')).trim(); if (!text) throw new Error('Opisz błąd');
         const fileIds = await saveShots(fd);
         DB.reports.push({ id: uid(), type: 'bug', title: String(fd.get('title')).trim(), text, fromId: ME.id, anon: false, fileIds, status: 'open', createdAt: Date.now(), ua: navigator.userAgent.slice(0, 160), ver: VERSION });
-        log('Zgłoszono błąd: ' + String(fd.get('title')).trim()); save(); render(); toast('Dziękujemy – błąd zgłoszony');
+        log('Zgłoszono błąd: ' + String(fd.get('title')).trim()); try { window.JarvisReport && window.JarvisReport('Zgłoszenie błędu: ' + String(fd.get('title')).trim(), text + '\n\nZgłosił: ' + (ME.name || '?'), { kind: 'zgloszenie', ver: VERSION }); } catch (_) {} save(); render(); toast('Dziękujemy – błąd zgłoszony');
       },
     });
   },
